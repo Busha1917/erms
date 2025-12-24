@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------- Global Base ---------- */
+@layer base {
+  body {
+    @apply bg-gray-100 text-gray-800 antialiased;
+    font-family: Inter, system-ui, sans-serif;
+  }
+
+  h1 {
+    @apply text-2xl font-bold text-gray-900;
+  }
+
+  h2 {
+    @apply text-xl font-semibold text-gray-900;
+  }
+
+  h3 {
+    @apply text-lg font-semibold;
+  }
+}
+
+/* ---------- Reusable Components ---------- */
+@layer components {
+  .page-container {
+    @apply bg-white rounded-xl shadow-sm p-6;
+  }
+
+  .btn-primary {
+    @apply bg-blue-900 text-white font-semibold px-6 py-2 rounded-lg
+           hover:bg-blue-800 transition;
+  }
+
+  .btn-secondary {
+    @apply border border-blue-900 text-blue-900 font-semibold px-6 py-2 rounded-lg
+           hover:bg-blue-50 transition;
+  }
+
+  .input {
+    @apply border border-gray-300 bg-gray-50 px-4 py-2 rounded-lg
+           focus:outline-none focus:ring-2 focus:ring-blue-400;
+  }
+
+  .table-head {
+    @apply bg-blue-900 text-white font-semibold;
+  }
+}
