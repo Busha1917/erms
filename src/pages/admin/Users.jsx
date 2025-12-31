@@ -1,20 +1,19 @@
 import { useMemo, useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { addUser, updateUser, loadSampleData as loadUsers } from "../../store/usersSlice";
-import { loadSampleData as loadDevices } from "../../store/devicesSlice";
+import { fetchUsers, addUser, updateUser } from "../../store/usersSlice";
 import UserFormModal from "../../components/UserFormModal";
 import ConfirmDialog from "../../components/ConfirmDialog";
 
 export default function Users() {
-  const usersList = useSelector((state) => state.users?.list);
+  const { list: usersList, loading, error } = useSelector((state) => state.users);
   const users = Array.isArray(usersList) ? usersList : [];
-  const devicesList = useSelector((state) => state.devices?.list);
+  const { list: devicesList } = useSelector((state) => state.devices);
   const devices = Array.isArray(devicesList) ? devicesList : [];
   const dispatch = useDispatch();
 
   /* ---------- UI state ---------- */
   const [selectedUser, setSelectedUser] = useState(null);
-  const [confirm, setConfirm] = useState(null);
+  const [confirm, setConfirm] =useState(null);
   const [page, setPage] = useState(1);
   const [showTrash, setShowTrash] = useState(false);
   const [filters, setFilters] = useState({ department: "All", role: "All", status: "All" });
@@ -29,16 +28,16 @@ export default function Users() {
     setPage(1);
   }, [showTrash, filters, sortBy, searchQuery]);
 
-  // Load sample data if list is empty
+  // Load data from backend
   useEffect(() => {
-    if (users.length === 0) dispatch(loadUsers());
-    if (devices.length === 0) dispatch(loadDevices());
-  }, [dispatch, users.length, devices.length]);
+    dispatch(fetchUsers(showTrash));
+  }, [dispatch, showTrash]);
 
   /* ---------- pagination ---------- */
   const filteredUsers = useMemo(() => {
+    // The backend now handles the filtering for `isDeleted` via the `showTrash` parameter.
+    // The frontend filtering remains for dynamic client-side filtering.
     return users
-      .filter((u) => (showTrash ? u.isDeleted : !u.isDeleted))
       .filter((u) => (filters.department === "All" ? true : u.department === filters.department))
       .filter((u) => (filters.role === "All" ? true : u.role === filters.role))
       .filter((u) => (filters.status === "All" ? true : u.status === filters.status))
@@ -50,7 +49,7 @@ export default function Users() {
           (u.email || "").toLowerCase().includes(lowerQuery)
         );
       });
-  }, [users, showTrash, filters, searchQuery]);
+  }, [users, filters, searchQuery]);
 
   const sortedUsers = useMemo(() => {
     return [...filteredUsers].sort((a, b) => {
@@ -78,6 +77,7 @@ export default function Users() {
       name: "",
       username: "",
       email: "",
+      password: "", // Add password field for creation
       phone: "",
       department: "",
       role: "",
@@ -178,126 +178,130 @@ export default function Users() {
 
       {/* TABLE */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-gray-50 text-gray-600 uppercase text-xs font-semibold tracking-wider">
-            <tr>
-              <th className="p-4">User Profile</th>
-              <th className="p-4">Contact Info</th>
-              <th className="p-4">Role & Dept</th>
-              <th className="p-4">Assigned Devices</th>
-              <th className="p-4">Status</th>
-              <th className="p-4">Activity</th>
-              <th className="p-4 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {paginatedUsers.map((u) => (
-              <tr key={u.id} className="hover:bg-gray-50 transition-colors">
-                <td className="p-4">
-                  <div className="font-medium text-gray-900">{u.name}</div>
-                  <div className="text-sm text-gray-500">@{u.username}</div>
-                </td>
-                <td className="p-4">
-                  <div className="text-sm text-gray-900">{u.email}</div>
-                  <div className="text-sm text-gray-500">{u.phone}</div>
-                </td>
-                <td className="p-4">
-                  <div className="text-sm font-medium text-gray-900 capitalize">
-                    {u.role}
-                  </div>
-                  <div className="text-sm text-gray-500">{u.department}</div>
-                </td>
-                <td className="p-4">
-                  <div className="text-sm text-gray-900">
-                    {devices.filter(d => d.assignedToId === u.id).map(d => d.deviceName).join(", ") || (
-                      <span className="text-gray-400 italic">None</span>
-                    )}
-                  </div>
-                </td>
-                <td className="p-4">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      u.status === "Active"
-                        ? "bg-green-100 text-green-700"
-                        : u.status === "Suspended"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-red-100 text-red-700"
-                    }`}
-                  >
-                    {u.status}
-                  </span>
-                </td>
-                <td className="p-4 text-xs text-gray-500 space-y-1">
-                  <div>Created: {u.createdAt || "-"}</div>
-                  <div>Last Login: {u.lastLogin || "-"}</div>
-                  <div>By: {u.createdBy || "-"}</div>
-                </td>
-                <td className="p-4 text-right">
-                  <div className="flex justify-end gap-2">
-                    {!showTrash ? (
-                      <>
-                        <button
-                          onClick={() => setSelectedUser(u)}
-                          className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                          title="Edit"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                          </svg>
-                        </button>
-                        {u.status === "Active" ? (
-                          <button
-                            onClick={() => setConfirm({ type: "suspend", user: u })}
-                            className="p-1 text-yellow-600 hover:bg-yellow-50 rounded"
-                            title="Suspend"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="12" cy="12" r="10"></circle>
-                              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
-                            </svg>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setConfirm({ type: "activate", user: u })}
-                            className="p-1 text-green-600 hover:bg-green-50 rounded"
-                            title="Activate"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                            </svg>
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setConfirm({ type: "delete", user: u })}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded"
-                          title="Delete"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                          </svg>
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => setConfirm({ type: "restore", user: u })}
-                        className="p-1 text-green-600 hover:bg-green-50 rounded"
-                        title="Restore"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="1 4 1 10 7 10"></polyline>
-                          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                </td>
+        {loading && <div className="p-4 text-center">Loading...</div>}
+        {error && <div className="p-4 text-center text-red-500">Error: {error.message || 'Failed to load data'}</div>}
+        {!loading && !error && (
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-gray-50 text-gray-600 uppercase text-xs font-semibold tracking-wider">
+              <tr>
+                <th className="p-4">User Profile</th>
+                <th className="p-4">Contact Info</th>
+                <th className="p-4">Role & Dept</th>
+                <th className="p-4">Assigned Devices</th>
+                <th className="p-4">Status</th>
+                <th className="p-4">Activity</th>
+                <th className="p-4 text-right">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {paginatedUsers.map((u) => (
+                <tr key={u.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="p-4">
+                    <div className="font-medium text-gray-900">{u.name}</div>
+                    <div className="text-sm text-gray-500">@{u.username}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="text-sm text-gray-900">{u.email}</div>
+                    <div className="text-sm text-gray-500">{u.phone}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="text-sm font-medium text-gray-900 capitalize">
+                      {u.role}
+                    </div>
+                    <div className="text-sm text-gray-500">{u.department}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="text-sm text-gray-900">
+                      {devices.filter(d => d.assignedToId === u.id).map(d => d.deviceName).join(", ") || (
+                        <span className="text-gray-400 italic">None</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        u.status === "Active"
+                          ? "bg-green-100 text-green-700"
+                          : u.status === "Suspended"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {u.status}
+                    </span>
+                  </td>
+                  <td className="p-4 text-xs text-gray-500 space-y-1">
+                    <div>Created: {new Date(u.createdAt).toLocaleDateString() || "-"}</div>
+                    <div>Last Login: {u.lastLogin ? new Date(u.lastLogin).toLocaleString() : "-"}</div>
+                    <div>By: {u.createdBy || "-"}</div>
+                  </td>
+                  <td className="p-4 text-right">
+                    <div className="flex justify-end gap-2">
+                      {!showTrash ? (
+                        <>
+                          <button
+                            onClick={() => setSelectedUser(u)}
+                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                            title="Edit"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                          </button>
+                          {u.status === "Active" ? (
+                            <button
+                              onClick={() => setConfirm({ type: "suspend", user: u })}
+                              className="p-1 text-yellow-600 hover:bg-yellow-50 rounded"
+                              title="Suspend"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                              </svg>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setConfirm({ type: "activate", user: u })}
+                              className="p-1 text-green-600 hover:bg-green-50 rounded"
+                              title="Activate"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                              </svg>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setConfirm({ type: "delete", user: u })}
+                            className="p-1 text-red-600 hover:bg-red-50 rounded"
+                            title="Delete"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => setConfirm({ type: "restore", user: u })}
+                          className="p-1 text-green-600 hover:bg-green-50 rounded"
+                          title="Restore"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="1 4 1 10 7 10"></polyline>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* PAGINATION */}
@@ -340,15 +344,7 @@ export default function Users() {
           if (selectedUser.id) {
             dispatch(updateUser(formData));
           } else {
-            dispatch(
-              addUser({
-                ...formData,
-                id: Date.now(),
-                createdAt: new Date().toISOString().split("T")[0],
-                lastLogin: "-",
-                createdBy: "Admin",
-              })
-            );
+            dispatch(addUser(formData));
           }
           setSelectedUser(null);
         }}
@@ -363,7 +359,7 @@ export default function Users() {
           if (confirm.type === "delete") {
             dispatch(updateUser({ ...confirm.user, isDeleted: true, status: "Suspended" }));
           } else if (confirm.type === "restore") {
-            dispatch(updateUser({ ...confirm.user, isDeleted: false }));
+            dispatch(updateUser({ ...confirm.user, isDeleted: false, status: "Active" }));
           } else if (confirm.type === "suspend") {
             dispatch(updateUser({ ...confirm.user, status: "Suspended" }));
           } else if (confirm.type === "activate") {

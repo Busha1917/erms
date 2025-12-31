@@ -1,78 +1,101 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import api from "./api";
 
-const sampleData = [
-  {
-    id: 1,
-    serialNumber: "SN-1001",
-    deviceName: "Laptop HP",
-    department: "IT",
-    status: "Active",
-    isDeleted: false,
-    createdAt: "2025-01-01",
-    lastChecked: "2025-12-01",
-    addedBy: "Admin",
-  },
-  {
-    id: 2,
-    serialNumber: "SN-1002",
-    deviceName: "Printer Canon",
-    department: "Admin",
-    status: "Active",
-    isDeleted: false,
-    createdAt: "2025-02-01",
-    lastChecked: "2025-12-05",
-    addedBy: "Admin",
-  },
-  ...Array.from({ length: 28 }, (_, i) => ({
-    id: i + 3,
-    serialNumber: `SN-10${(i + 3).toString().padStart(2, "0")}`,
-    deviceName: i % 2 === 0 ? "Desktop Dell" : "Monitor LG",
-    department: ["IT", "HR", "Finance", "Admin"][i % 4],
-    status: i % 5 === 0 ? "Suspended" : "Active",
-    isDeleted: false,
-    createdAt: "2025-03-01",
-    lastChecked: "2025-12-10",
-    addedBy: "Admin",
-  })),
-];
+export const fetchDevices = createAsyncThunk("devices/fetchAll", async (includeDeleted = false, { rejectWithValue }) => {
+  try {
+    const response = await api.get(`/devices${includeDeleted ? '?deleted=true' : ''}`);
+    return response.data;
+  } catch (error) {
+    return rejectWithValue(error.response.data);
+  }
+});
+
+export const loadSampleData = fetchDevices;
+
+export const addDevice = createAsyncThunk("devices/add", async (deviceData, { rejectWithValue }) => {
+  try {
+    const response = await api.post("/devices", deviceData);
+    return response.data;
+  } catch (error) {
+    return rejectWithValue(error.response.data);
+  }
+});
+
+export const updateDevice = createAsyncThunk("devices/update", async (deviceData, { rejectWithValue }) => {
+  try {
+    const response = await api.put(`/devices/${deviceData.id}`, deviceData);
+    return response.data;
+  } catch (error) {
+    return rejectWithValue(error.response.data);
+  }
+});
+
+export const deleteDevice = createAsyncThunk("devices/delete", async (deviceData, { rejectWithValue }) => {
+  try {
+    await api.delete(`/devices/${deviceData.id}`);
+    return deviceData.id;
+  } catch (error) {
+    return rejectWithValue(error.response.data);
+  }
+});
+
+export const restoreDevice = createAsyncThunk("devices/restore", async (deviceId, { rejectWithValue }) => {
+  try {
+    await api.put(`/devices/${deviceId}/restore`);
+    return deviceId;
+  } catch (error) {
+    return rejectWithValue(error.response.data);
+  }
+});
 
 const initialState = {
-  list: sampleData,
+  list: [],
+  loading: false,
+  error: null,
 };
 
 const devicesSlice = createSlice({
   name: "devices",
   initialState,
   reducers: {
-    addDevice: (state, action) => {
-      state.list.push(action.payload);
-    },
-    updateDevice: (state, action) => {
-      const index = state.list.findIndex(d => d.id === action.payload.id);
-      if (index !== -1) state.list[index] = action.payload;
-    },
-    deleteDevice: (state, action) => {
-      const index = state.list.findIndex(d => d.id === action.payload.id);
-      if (index !== -1) state.list[index].isDeleted = true;
-    },
-    restoreDevice: (state, action) => {
-      const index = state.list.findIndex(d => d.id === action.payload.id);
-      if (index !== -1) state.list[index].isDeleted = false;
-    },
-    toggleDeviceStatus: (state, action) => {
-      const index = state.list.findIndex(d => d.id === action.payload.id);
-      if (index !== -1) {
-        state.list[index].status =
-          state.list[index].status === "Active" ? "Inactive" : "Active";
-      }
-    },
-    loadSampleData: (state) => {
-      state.list = sampleData;
-    },
+    // Synchronous actions
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchDevices.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchDevices.fulfilled, (state, action) => {
+        state.loading = false;
+        state.list = action.payload;
+      })
+      .addCase(fetchDevices.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(addDevice.fulfilled, (state, action) => {
+        state.list.push(action.payload);
+      })
+      .addCase(updateDevice.fulfilled, (state, action) => {
+        const index = state.list.findIndex((d) => d.id === action.payload.id);
+        if (index !== -1) state.list[index] = action.payload;
+      })
+      .addCase(deleteDevice.fulfilled, (state, action) => {
+        const index = state.list.findIndex((d) => d.id === action.payload);
+        if (index !== -1) {
+          state.list[index].isDeleted = true;
+          state.list[index].status = 'Retired';
+        }
+      })
+      .addCase(restoreDevice.fulfilled, (state, action) => {
+        const index = state.list.findIndex((d) => d.id === action.payload);
+        if (index !== -1) {
+          state.list[index].isDeleted = false;
+          state.list[index].status = 'Active';
+        }
+      });
   },
 });
 
-export const { addDevice, updateDevice, deleteDevice, restoreDevice, toggleDeviceStatus, loadSampleData } =
-  devicesSlice.actions;
-
+export const { } = devicesSlice.actions;
 export default devicesSlice.reducer;

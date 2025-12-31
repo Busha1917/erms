@@ -81,7 +81,7 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
 
   // Filter devices for user view (Technicians see all or just the one in the request)
   const availableDevices = isUserView
-    ? devices.filter(d => d.assignedToId === currentUser?.id)
+    ? devices.filter(d => d.assignedToId === currentUser?.id && d.status !== "Suspended")
     : devices;
 
   // Get details of the requested user (either current user or selected user)
@@ -338,6 +338,7 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
                   type="date"
                   value={form.problemStartDate}
                   onChange={(e) => setForm({ ...form, problemStartDate: e.target.value })}
+                  max={new Date().toISOString().split("T")[0]}
                   disabled={isTechnicianView}
                   className="w-full border rounded px-2 py-1"
                 />
@@ -407,21 +408,25 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
             </div>
           </div>
 
-          {!isUserView && (
           <div>
             <label className="block text-sm font-medium">Status</label>
-            <select
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
-              className="w-full border rounded px-2 py-1"
-            >
-              <option value="Pending">Pending</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Completed">Completed</option>
-              <option value="Rejected">Rejected</option>
-            </select>
+            {isUserView ? (
+              <div className="w-full border rounded px-2 py-1 bg-gray-50 text-gray-700 font-medium">
+                {form.status}
+              </div>
+            ) : (
+              <select
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}
+                className="w-full border rounded px-2 py-1"
+              >
+                <option value="Pending">Pending</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            )}
           </div>
-          )}
 
           {!isUserView && (
           <div>

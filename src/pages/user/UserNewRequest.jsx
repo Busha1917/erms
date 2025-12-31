@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { addRequest } from "../../store/repairRequestsSlice";
 import { addNotification } from "../../store/notificationsSlice";
 import { loadSampleData as loadInventory } from "../../store/inventorySlice";
@@ -9,6 +9,7 @@ import { loadSampleData as loadDevices } from "../../store/devicesSlice";
 export default function UserNewRequest() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const devicesList = useSelector((state) => state.devices?.list);
   const devices = Array.isArray(devicesList) ? devicesList : [];
@@ -51,6 +52,7 @@ export default function UserNewRequest() {
     if (currentUser) {
       setForm({
         ...defaultForm,
+        deviceId: location.state?.deviceId || "",
         requestedById: currentUser.id,
         department: currentUser.department || "",
         problemCategory: "Hardware",
@@ -68,10 +70,10 @@ export default function UserNewRequest() {
         isPaused: false,
       });
     }
-  }, [currentUser]);
+  }, [currentUser, location.state]);
 
   // Filter devices for user view
-  const availableDevices = devices.filter(d => d.assignedToId === currentUser?.id);
+  const availableDevices = devices.filter(d => d.assignedToId === currentUser?.id && d.status !== "Suspended");
 
   const handleSave = () => {
     dispatch(addRequest({
@@ -173,6 +175,7 @@ export default function UserNewRequest() {
                 type="date"
                 value={form.problemStartDate}
                 onChange={(e) => setForm({ ...form, problemStartDate: e.target.value })}
+                max={new Date().toISOString().split("T")[0]}
                 className="w-full border rounded px-2 py-1"
               />
             </div>

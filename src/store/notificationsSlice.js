@@ -1,19 +1,37 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import api from "./api";
 
-const loadNotifications = () => {
+export const fetchNotifications = createAsyncThunk("notifications/fetchAll", async (_, { rejectWithValue }) => {
   try {
-    const serializedState = localStorage.getItem("notifications");
-    if (serializedState === null) {
-      return [];
-    }
-    return JSON.parse(serializedState);
-  } catch (err) {
-    return [];
+    const response = await api.get("/notifications");
+    return response.data;
+  } catch (error) {
+    return rejectWithValue(error.response.data);
   }
-};
+});
+
+export const markAsRead = createAsyncThunk("notifications/markAsRead", async (id, { rejectWithValue }) => {
+  try {
+    const response = await api.put(`/notifications/${id}/read`);
+    return response.data;
+  } catch (error) {
+    return rejectWithValue(error.response.data);
+  }
+});
+
+export const markAllAsRead = createAsyncThunk("notifications/markAllAsRead", async (_, { rejectWithValue }) => {
+  try {
+    const response = await api.put("/notifications/read-all");
+    return response.data;
+  } catch (error) {
+    return rejectWithValue(error.response.data);
+  }
+});
 
 const initialState = {
-  list: loadNotifications(),
+  list: [],
+  loading: false,
+  error: null,
 };
 
 const notificationsSlice = createSlice({
@@ -21,24 +39,35 @@ const notificationsSlice = createSlice({
   initialState,
   reducers: {
     addNotification: (state, action) => {
-      // payload: { targetRole, targetUserId, message, date, type }
-      state.list.unshift({ ...action.payload, id: Date.now(), read: false });
-      localStorage.setItem("notifications", JSON.stringify(state.list));
+      state.list.unshift(action.payload);
     },
-    markAsRead: (state, action) => {
-      const notif = state.list.find((n) => n.id === action.payload);
-      if (notif) notif.read = true;
-      localStorage.setItem("notifications", JSON.stringify(state.list));
-    },
-    markAllAsRead: (state, action) => {
-      const ids = action.payload; // Array of notification IDs
-      state.list.forEach((n) => {
-        if (ids.includes(n.id)) n.read = true;
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchNotifications.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchNotifications.fulfilled, (state, action) => {
+        state.loading = false;
+        state.list = action.payload;
+      })
+      .addCase(fetchNotifications.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(markAsRead.fulfilled, (state, action) => {
+        const index = state.list.findIndex((n) => n._id === action.payload._id);
+        if (index !== -1) {
+            state.list[index] = action.payload;
+        }
+      })
+      .addCase(markAllAsRead.fulfilled, (state) => {
+        state.list.forEach((notification) => {
+          notification.isRead = true;
+        });
       });
-      localStorage.setItem("notifications", JSON.stringify(state.list));
-    },
   },
 });
 
-export const { addNotification, markAsRead, markAllAsRead } = notificationsSlice.actions;
+export const { addNotification } = notificationsSlice.actions;
 export default notificationsSlice.reducer;

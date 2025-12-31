@@ -1,49 +1,107 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import api from "./api";
 
-const sampleUsers = [
-  { id: 1, name: "Admin User", avatar: null, username: "admin", email: "admin@example.com", password: "123", phone: "555-0100", role: "admin", department: "IT", address: "Server Room 1", status: "Active", createdAt: "2025-01-01", lastLogin: "2025-12-23", createdBy: "System" },
-  { id: 2, name: "Tech Sarah", avatar: null, username: "sarah", email: "sarah@example.com", password: "123", phone: "555-0101", role: "technician", specialty: "Laptops", department: "IT", address: "Tech Lab A", status: "Active", createdAt: "2025-01-02", lastLogin: "2025-12-22", createdBy: "Admin" },
-  { id: 3, name: "John Doe", avatar: null, username: "jdoe", email: "john@example.com", password: "123", phone: "555-0102", role: "employee", department: "HR", address: "HR Office 101", status: "Active", createdAt: "2025-01-03", lastLogin: "2025-12-20", createdBy: "Admin" },
-  { id: 4, name: "Jane Smith", avatar: null, username: "jsmith", email: "jane@example.com", password: "123", phone: "555-0103", role: "employee", department: "Finance", address: "Finance Block B", status: "Active", createdAt: "2025-01-04", lastLogin: "2025-12-21", createdBy: "Admin" },
-  { id: 5, name: "Tech Mike", avatar: null, username: "mike", email: "mike@example.com", password: "123", phone: "555-0104", role: "technician", specialty: "Printers", department: "IT", address: "Tech Lab B", status: "Active", createdAt: "2025-01-05", lastLogin: "2025-12-19", createdBy: "Admin" },
-  ...Array.from({ length: 35 }, (_, i) => ({
-    id: i + 6,
-    name: `User ${i + 6}`,
-    avatar: null,
-    username: `user${i + 6}`,
-    email: `user${i + 6}@example.com`,
-    password: "123",
-    phone: `555-01${(i + 6).toString().padStart(2, "0")}`,
-    role: ["employee", "technician", "admin"][i % 3],
-    department: ["IT", "HR", "Finance", "Admin", "Sales"][i % 5],
-    address: `Building ${String.fromCharCode(65 + (i % 3))}, Room ${100 + i}`,
-    status: i % 10 === 0 ? "Suspended" : "Active",
-    createdAt: "2025-02-01",
-    lastLogin: "2025-12-15",
-    createdBy: "Admin",
-  })),
-];
+// Async Thunks
+export const fetchUsers = createAsyncThunk("users/fetchUsers", async (includeDeleted = false, { rejectWithValue }) => {
+  try {
+    const response = await api.get(`/users${includeDeleted ? '?deleted=true' : ''}`);
+    return response.data;
+  } catch (error) {
+    return rejectWithValue(error.response.data);
+  }
+});
+
+// Alias fetchUsers as loadSampleData to match the naming convention used in other slices and expected by components
+export const loadSampleData = fetchUsers;
+
+export const addUser = createAsyncThunk("users/addUser", async (userData, { rejectWithValue }) => {
+  try {
+    const response = await api.post("/users", userData);
+    return response.data;
+  } catch (error) {
+    return rejectWithValue(error.response.data);
+  }
+});
+
+export const updateUser = createAsyncThunk("users/updateUser", async (userData, { rejectWithValue }) => {
+  try {
+    const response = await api.put(`/users/${userData.id}`, userData);
+    return response.data;
+  } catch (error) {
+    return rejectWithValue(error.response.data);
+  }
+});
+
+export const deleteUser = createAsyncThunk("users/deleteUser", async (userId, { rejectWithValue }) => {
+  try {
+    await api.delete(`/users/${userId}`);
+    return userId;
+  } catch (error) {
+    return rejectWithValue(error.response.data);
+  }
+});
+
+export const restoreUser = createAsyncThunk("users/restoreUser", async (userId, { rejectWithValue }) => {
+  try {
+    await api.put(`/users/${userId}/restore`);
+    return userId;
+  } catch (error) {
+    return rejectWithValue(error.response.data);
+  }
+});
 
 const initialState = {
-  list: sampleUsers,
+  list: [],
+  loading: false,
+  error: null,
 };
 
 const usersSlice = createSlice({
   name: "users",
   initialState,
-  reducers: {
-    addUser: (state, action) => {
-      state.list.push(action.payload);
-    },
-    updateUser: (state, action) => {
-      const index = state.list.findIndex((u) => u.id === action.payload.id);
-      if (index !== -1) state.list[index] = action.payload;
-    },
-    loadSampleData: (state) => {
-      state.list = sampleUsers;
-    },
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      // Fetch Users
+      .addCase(fetchUsers.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchUsers.fulfilled, (state, action) => {
+        state.loading = false;
+        state.list = action.payload;
+      })
+      .addCase(fetchUsers.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // Add User
+      .addCase(addUser.fulfilled, (state, action) => {
+        state.list.push(action.payload);
+      })
+      // Update User
+      .addCase(updateUser.fulfilled, (state, action) => {
+        const index = state.list.findIndex((u) => u.id === action.payload.id);
+        if (index !== -1) {
+          state.list[index] = action.payload;
+        }
+      })
+      // Delete User (handles soft delete by updating the user's state)
+      .addCase(deleteUser.fulfilled, (state, action) => {
+         const index = state.list.findIndex((u) => u.id === action.payload);
+         if (index !== -1) {
+            state.list[index].isDeleted = true;
+            state.list[index].status = 'Suspended';
+         }
+      })
+      .addCase(restoreUser.fulfilled, (state, action) => {
+        const index = state.list.findIndex((u) => u.id === action.payload);
+        if (index !== -1) {
+          state.list[index].isDeleted = false;
+          state.list[index].status = 'Active';
+        }
+      });
   },
 });
 
-export const { addUser, updateUser, loadSampleData } = usersSlice.actions;
 export default usersSlice.reducer;
