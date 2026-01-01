@@ -1,46 +1,49 @@
-# React + TypeScript + Vite
+# Electronics Repair Management System (ERMS)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A comprehensive web-based application designed to streamline operations for electronics repair shops. It manages the entire lifecycle of repair requests, from intake to completion, along with inventory tracking and user management.
 
-Currently, two official plugins are available:
+## 🚀 Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+*   **Admin Dashboard**: Real-time overview of KPIs, active repairs, and low stock alerts.
+*   **User Management**: Full CRUD capabilities for Admins, Technicians, and Customers with soft-delete and restore functionality.
+*   **Device Management**: Register and track customer devices, linked to repair history.
+*   **Repair Workflow**: Track repair status (Pending, Diagnosing, In Progress, Waiting for Parts, Completed).
+*   **Inventory System**: Manage spare parts, track usage in repairs, and monitor stock levels.
+*   **Notifications**: Real-time updates for status changes and assignments.
+*   **Reports**: Generate insights on repair volume and technician performance.
+*   **Authentication**: Secure JWT-based login and Role-Based Access Control (RBAC).
 
-## React Compiler
+## 🛠️ Tech Stack
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+*   **Frontend**: React, Vite, Redux Toolkit
+*   **Backend**: Node.js, Express.js
+*   **Database**: MongoDB (Mongoose ODM)
+*   **State Management**: Redux Toolkit (Slices & AsyncThunks)
+*   **HTTP Client**: Axios
 
-## Expanding the ESLint configuration
+## ⚙️ Installation & Setup
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Prerequisites
+*   Node.js (v16+)
+*   MongoDB (Local or Atlas)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 1. Clone the Repository
+```bash
+git clone https://github.com/your-username/erms.git
+cd erms
+```
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 2. Install Dependencies
+```bash
+npm install
+```
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 3. Configure Environment Variables
+Create a `.env` file in the root directory:
+```env
+PORT=5000
+MONGO_URI=mongodb://localhost:27017/erms
+JWT_SECRET=your_super_secret_key_here
 ```
 
 You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
