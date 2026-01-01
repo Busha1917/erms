@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { fetchUsers, addUser, updateUser, deleteUser, restoreUser } from "../../store/usersSlice";
+import { loadSampleData as loadDevices } from "../../store/devicesSlice";
 import UserFormModal from "../../components/UserFormModal";
 import ConfirmDialog from "../../components/ConfirmDialog";
 
@@ -31,7 +32,8 @@ export default function Users() {
   // Load data from backend
   useEffect(() => {
     dispatch(fetchUsers(showTrash));
-  }, [dispatch, showTrash]);
+    if (devices.length === 0) dispatch(loadDevices());
+  }, [dispatch, showTrash, devices.length]);
 
   /* ---------- pagination ---------- */
   const filteredUsers = useMemo(() => {
@@ -211,7 +213,11 @@ export default function Users() {
                   </td>
                   <td className="p-4">
                     <div className="text-sm text-gray-900">
-                      {devices.filter(d => d.assignedToId === u.id).map(d => d.deviceName).join(", ") || (
+                      {devices.filter(d => {
+                        // Handle both populated object (d.assignedToId.id) and raw ID string
+                        const assignedId = d.assignedToId?.id || d.assignedToId?._id || d.assignedToId;
+                        return assignedId === u.id;
+                      }).map(d => d.deviceName).join(", ") || (
                         <span className="text-gray-400 italic">None</span>
                       )}
                     </div>

@@ -26,6 +26,7 @@ export default function AdminLayout() {
     { name: "Users", path: "/admin/users" },
     { name: "Devices", path: "/admin/devices" },
     { name: "Repair Requests", path: "/admin/requests" },
+    { name: "Departments", path: "/admin/departments" },
     { name: "Inventory", path: "/admin/inventory" },
     { name: "Reports", path: "/admin/reports" },
     { name: "Settings", path: "/admin/settings" },

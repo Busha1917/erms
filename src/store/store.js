@@ -8,6 +8,7 @@ import notificationsReducer from "./notificationsSlice";
 import dashboardReducer from "./dashboardSlice";
 import reportsReducer from "./reportsSlice";
 import settingsReducer from "./settingsSlice";
+import departmentsReducer from "./departmentsSlice";
 
 export const store = configureStore({
   reducer: {
@@ -20,6 +21,7 @@ export const store = configureStore({
     dashboard: dashboardReducer,
     reports: reportsReducer,
     settings: settingsReducer,
+    departments: departmentsReducer,
   },
 });
 

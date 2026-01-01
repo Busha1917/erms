@@ -41,6 +41,7 @@ try {
   app.use('/api/dashboard', require('./dashboardRoutes'));
   app.use('/api/reports', require('./reportRoutes'));
   app.use('/api/settings', require('./settingsRoutes'));
+  app.use('/api/departments', require('./departmentRoutes'));
 } catch (error) {
   console.error("Error loading routes. Check for missing dependencies or syntax errors:", error.message);
   // Server continues to run to avoid Connection Refused, but API will return 404s

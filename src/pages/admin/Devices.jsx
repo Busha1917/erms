@@ -13,24 +13,61 @@ export default function Devices() {
   
   const [showTrash, setShowTrash] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState({ type: "All", status: "All", department: "All" });
+  const [sortBy, setSortBy] = useState("createdAt");
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [assignDevice, setAssignDevice] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 5;
 
   useEffect(() => {
     dispatch(fetchDevices(showTrash));
     if (!users || users.length === 0) dispatch(loadUsers());
   }, [dispatch, showTrash, users?.length]);
 
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [showTrash, searchTerm, filters, sortBy]);
+
+  const departments = useMemo(() => ["All", ...new Set(users.map((u) => u.department).filter(Boolean))], [users]);
+
   const filteredDevices = useMemo(() => {
-    return (devices || [])
+    let result = (devices || [])
       .filter((d) => showTrash ? d.isDeleted : !d.isDeleted)
       .filter((d) => 
         d.deviceName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         d.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (d.assignedToId?.name || "").toLowerCase().includes(searchTerm.toLowerCase())
       );
-  }, [devices, showTrash, searchTerm]);
+
+    if (filters.type !== "All") {
+      result = result.filter((d) => d.type === filters.type);
+    }
+    if (filters.status !== "All") {
+      result = result.filter((d) => d.status === filters.status);
+    }
+    if (filters.department !== "All") {
+      result = result.filter((d) => d.assignedToId?.department === filters.department);
+    }
+
+    return result.sort((a, b) => {
+      if (sortBy === "deviceName") return a.deviceName.localeCompare(b.deviceName);
+      if (sortBy === "serialNumber") return a.serialNumber.localeCompare(b.serialNumber);
+      if (sortBy === "type") return a.type.localeCompare(b.type);
+      if (sortBy === "status") return a.status.localeCompare(b.status);
+      if (sortBy === "createdAt") return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+      return 0;
+    });
+  }, [devices, showTrash, searchTerm, filters, sortBy]);
+
+  const paginatedDevices = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredDevices.slice(start, start + pageSize);
+  }, [filteredDevices, page]);
+
+  const totalPages = Math.ceil(filteredDevices.length / pageSize);
 
   // Helper to sanitize device data before sending to backend
   const sanitizeDevice = (device) => {
@@ -85,8 +122,8 @@ export default function Devices() {
         </div>
       </div>
 
-      {/* SEARCH */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border">
+      {/* SEARCH & FILTERS */}
+      <div className="bg-white p-4 rounded-lg shadow-sm border flex flex-wrap gap-4 items-center">
         <input
           type="text"
           placeholder="Search by name, serial number, or owner..."
@@ -94,6 +131,55 @@ export default function Devices() {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
+
+        <select
+          value={filters.type}
+          onChange={(e) => setFilters((prev) => ({ ...prev, type: e.target.value }))}
+          className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="All">All Types</option>
+          <option value="Laptop">Laptop</option>
+          <option value="Desktop">Desktop</option>
+          <option value="Phone">Phone</option>
+          <option value="Tablet">Tablet</option>
+          <option value="Printer">Printer</option>
+          <option value="Other">Other</option>
+        </select>
+
+        <select
+          value={filters.status}
+          onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}
+          className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="All">All Status</option>
+          <option value="Active">Active</option>
+          <option value="In Repair">In Repair</option>
+          <option value="Retired">Retired</option>
+          <option value="Suspended">Suspended</option>
+        </select>
+
+        <select
+          value={filters.department}
+          onChange={(e) => setFilters((prev) => ({ ...prev, department: e.target.value }))}
+          className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="All">All Departments</option>
+          {departments.map((dept) => (
+            <option key={dept} value={dept}>{dept}</option>
+          ))}
+        </select>
+
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ml-auto"
+        >
+          <option value="createdAt">Sort by Date Added</option>
+          <option value="deviceName">Sort by Name</option>
+          <option value="serialNumber">Sort by Serial #</option>
+          <option value="type">Sort by Type</option>
+          <option value="status">Sort by Status</option>
+        </select>
       </div>
 
       {/* TABLE */}
@@ -115,7 +201,7 @@ export default function Devices() {
             ) : filteredDevices.length === 0 ? (
               <tr><td colSpan="6" className="px-6 py-4 text-center text-gray-500">No devices found.</td></tr>
             ) : (
-              filteredDevices.map((device) => (
+              paginatedDevices.map((device) => (
                 <tr key={device.id || device._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-gray-900">{device.deviceName}</div>
@@ -175,6 +261,37 @@ export default function Devices() {
         </table>
       </div>
 
+      {/* PAGINATION */}
+      <div className="flex justify-center gap-2">
+        <button
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={page === 1}
+          className="px-3 py-1 rounded bg-white border disabled:opacity-50 hover:bg-gray-50"
+        >
+          Previous
+        </button>
+        {Array.from({ length: totalPages }, (_, i) => (
+          <button
+            key={i}
+            onClick={() => setPage(i + 1)}
+            className={`px-3 py-1 rounded ${
+              page === i + 1
+                ? "bg-blue-600 text-white"
+                : "bg-white border"
+            }`}
+          >
+            {i + 1}
+          </button>
+        ))}
+        <button
+          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          disabled={page === totalPages || totalPages === 0}
+          className="px-3 py-1 rounded bg-white border disabled:opacity-50 hover:bg-gray-50"
+        >
+          Next
+        </button>
+      </div>
+
       {/* MODALS */}
       <DeviceFormModal
         open={!!selectedDevice}
@@ -198,7 +315,7 @@ export default function Devices() {
         onConfirm={() => {
           // Ensure we have a valid ID (handle _id vs id mismatch if backend wasn't refreshed)
           const deviceId = confirm.device.id || confirm.device._id;
-          const payload = sanitizeDevice(confirm.device);
+          const payload = sanitizeDevice({ ...confirm.device, id: deviceId });
 
           if (confirm.type === 'delete') dispatch(deleteDevice({ id: deviceId }));
           if (confirm.type === 'restore') dispatch(restoreDevice(deviceId));
