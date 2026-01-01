@@ -129,9 +129,8 @@ export default function AdminLayout() {
 
         {/* PROFILE MODAL */}
         <UserFormModal
-          open={showProfileModal}
-          user={user}
-          isProfileView={true}
+          isOpen={showProfileModal}
+          initialData={user}
           onClose={() => setShowProfileModal(false)}
           onSave={(formData) => {
             dispatch(updateUser(formData));

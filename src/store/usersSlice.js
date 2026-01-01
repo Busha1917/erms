@@ -79,12 +79,20 @@ const usersSlice = createSlice({
       .addCase(addUser.fulfilled, (state, action) => {
         state.list.push(action.payload);
       })
+      .addCase(addUser.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
       // Update User
       .addCase(updateUser.fulfilled, (state, action) => {
         const index = state.list.findIndex((u) => u.id === action.payload.id);
         if (index !== -1) {
           state.list[index] = action.payload;
         }
+      })
+      .addCase(updateUser.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       })
       // Delete User (handles soft delete by updating the user's state)
       .addCase(deleteUser.fulfilled, (state, action) => {
@@ -94,12 +102,20 @@ const usersSlice = createSlice({
             state.list[index].status = 'Suspended';
          }
       })
+      .addCase(deleteUser.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
       .addCase(restoreUser.fulfilled, (state, action) => {
         const index = state.list.findIndex((u) => u.id === action.payload);
         if (index !== -1) {
           state.list[index].isDeleted = false;
           state.list[index].status = 'Active';
         }
+      })
+      .addCase(restoreUser.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   },
 });

@@ -22,7 +22,7 @@ export default function AssignTechnicianModal({ open, request, onClose, onSave }
   const technicians = users.filter((u) => u.role === "technician");
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex justify-center items-center z-50">
       <div className="bg-white p-6 rounded-lg w-full max-w-md">
         <h2 className="text-xl font-bold mb-4">Assign Technician & Set Priority</h2>
         <div className="space-y-4">

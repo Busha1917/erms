@@ -10,6 +10,15 @@ const deviceSchema = mongoose.Schema({
   condition: { type: String },
   status: { type: String, enum: ['Active', 'In Repair', 'Retired'], default: 'Active' },
   isDeleted: { type: Boolean, default: false },
-}, { timestamps: true });
+}, { 
+  timestamps: true,
+  toJSON: {
+    transform: (doc, ret) => {
+      ret.id = ret._id;
+      delete ret._id;
+      delete ret.__v;
+    }
+  }
+});
 
 module.exports = mongoose.model('Device', deviceSchema);

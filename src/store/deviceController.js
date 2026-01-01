@@ -23,7 +23,7 @@ const updateDevice = asyncHandler(async (req, res) => {
   const device = await Device.findById(req.params.id);
   if (!device) return res.status(404).json({ message: 'Device not found' });
 
-  const updatedDevice = await Device.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const updatedDevice = await Device.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('assignedToId', 'name email department');
   res.json(updatedDevice);
 });
 

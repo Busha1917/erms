@@ -104,7 +104,7 @@ export default function TechnicianLayout() {
         </header>
 
         <main className="flex-1 overflow-auto p-6"><Outlet /></main>
-        <UserFormModal open={showProfileModal} user={user} isProfileView={true} onClose={() => setShowProfileModal(false)} onSave={(formData) => { dispatch(updateUser(formData)); dispatch(login(formData)); setShowProfileModal(false); }} />
+        <UserFormModal isOpen={showProfileModal} initialData={user} onClose={() => setShowProfileModal(false)} onSave={(formData) => { dispatch(updateUser(formData)); dispatch(login(formData)); setShowProfileModal(false); }} />
       </div>
     </div>
   );

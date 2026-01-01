@@ -16,7 +16,9 @@ const getUsers = asyncHandler(async (req, res) => {
     ];
   }
   
-  if (deleted !== 'true') {
+  if (deleted === 'true') {
+    query.isDeleted = true;
+  } else {
     query.isDeleted = false;
   }
 
@@ -31,23 +33,85 @@ const getUserById = asyncHandler(async (req, res) => {
 });
 
 const createUser = asyncHandler(async (req, res) => {
-  const { name, username, email, password, role, department, phone, address } = req.body;
-  const userExists = await User.findOne({ $or: [{ email }, { username }] });
-  if (userExists) return res.status(400).json({ message: 'User already exists' });
+  let { name, username, email, password, role, department, phone, address } = req.body;
+
+  console.log(`[CreateUser] Request Body:`, JSON.stringify(req.body, null, 2));
+
+  // Validate required fields
+  if (!name || !email || !password) {
+    console.error('[CreateUser] Missing required fields');
+    res.status(400);
+    throw new Error('Please include all required fields: name, email, password');
+  }
+
+  // Normalize inputs to ensure consistency
+  email = email.trim().toLowerCase();
+  if (username) username = username.trim().toLowerCase();
+  
+  // Handle role validation
+  if (role && role.trim() !== '') {
+    role = role.trim().toLowerCase();
+    if (!['admin', 'technician', 'user'].includes(role)) {
+      console.error(`[CreateUser] Invalid role: ${role}`);
+      res.status(400);
+      throw new Error('Invalid role. Allowed values: admin, technician, user');
+    }
+  } else {
+    role = 'user';
+  }
+
+  // Check if email exists
+  const emailExists = await User.findOne({ email });
+  if (emailExists) {
+    console.error(`[CreateUser] Email collision: ${email}`);
+    res.status(400);
+    throw new Error('User with this email already exists');
+  }
+
+  // Handle Username
+  let finalUsername = username;
+  if (!finalUsername) {
+    finalUsername = email.split('@')[0];
+  }
+  finalUsername = finalUsername.toLowerCase();
+
+  // Check username collision and ensure uniqueness
+  let isUnique = false;
+  while (!isUnique) {
+    const usernameExists = await User.findOne({ username: finalUsername });
+    if (usernameExists) {
+      if (username) {
+          // If explicitly provided, fail
+          console.error(`[CreateUser] Username collision (explicit): ${finalUsername}`);
+          res.status(400);
+          throw new Error(`Username '${finalUsername}' is already taken. Please choose another.`);
+      } else {
+          // If auto-generated, append random suffix to make it unique
+          finalUsername = `${email.split('@')[0]}${Math.floor(1000 + Math.random() * 9000)}`.toLowerCase();
+          console.log(`[CreateUser] Username collision handled. Generated: ${finalUsername}`);
+      }
+    } else {
+      isUnique = true;
+    }
+  }
 
   const user = await User.create({
-    name, username, email, password, role, department, phone, address
+    name, 
+    username: finalUsername, 
+    email, 
+    password, 
+    role, 
+    department, 
+    phone, 
+    address
   });
 
   if (user) {
-    res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role
-    });
+    console.log(`[CreateUser] User created successfully: ${user._id}`);
+    res.status(201).json(user);
   } else {
-    res.status(400).json({ message: 'Invalid user data' });
+    res.status(400);
+    throw new Error('Invalid user data');
   }
 });
 
@@ -57,7 +121,14 @@ const updateUser = asyncHandler(async (req, res) => {
 
   user.name = req.body.name || user.name;
   user.email = req.body.email || user.email;
-  user.role = req.body.role || user.role;
+  
+  if (req.body.role) {
+    const newRole = req.body.role.toLowerCase();
+    if (['admin', 'technician', 'user'].includes(newRole)) {
+      user.role = newRole;
+    }
+  }
+  
   user.department = req.body.department || user.department;
   user.phone = req.body.phone || user.phone;
   user.address = req.body.address || user.address;
@@ -68,13 +139,7 @@ const updateUser = asyncHandler(async (req, res) => {
   }
 
   const updatedUser = await user.save();
-  res.json({
-    _id: updatedUser._id,
-    name: updatedUser.name,
-    email: updatedUser.email,
-    role: updatedUser.role,
-    status: updatedUser.status
-  });
+  res.json(updatedUser);
 });
 
 const deleteUser = asyncHandler(async (req, res) => {

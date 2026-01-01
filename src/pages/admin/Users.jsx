@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { fetchUsers, addUser, updateUser } from "../../store/usersSlice";
+import { fetchUsers, addUser, updateUser, deleteUser, restoreUser } from "../../store/usersSlice";
 import UserFormModal from "../../components/UserFormModal";
 import ConfirmDialog from "../../components/ConfirmDialog";
 
@@ -35,9 +35,8 @@ export default function Users() {
 
   /* ---------- pagination ---------- */
   const filteredUsers = useMemo(() => {
-    // The backend now handles the filtering for `isDeleted` via the `showTrash` parameter.
-    // The frontend filtering remains for dynamic client-side filtering.
     return users
+      .filter((u) => showTrash ? u.isDeleted : !u.isDeleted)
       .filter((u) => (filters.department === "All" ? true : u.department === filters.department))
       .filter((u) => (filters.role === "All" ? true : u.role === filters.role))
       .filter((u) => (filters.status === "All" ? true : u.status === filters.status))
@@ -337,8 +336,8 @@ export default function Users() {
 
       {/* MODALS */}
       <UserFormModal
-        open={!!selectedUser}
-        user={selectedUser}
+        isOpen={!!selectedUser}
+        initialData={selectedUser}
         onClose={() => setSelectedUser(null)}
         onSave={(formData) => {
           if (selectedUser.id) {
@@ -357,9 +356,9 @@ export default function Users() {
         onCancel={() => setConfirm(null)}
         onConfirm={() => {
           if (confirm.type === "delete") {
-            dispatch(updateUser({ ...confirm.user, isDeleted: true, status: "Suspended" }));
+            dispatch(deleteUser(confirm.user.id));
           } else if (confirm.type === "restore") {
-            dispatch(updateUser({ ...confirm.user, isDeleted: false, status: "Active" }));
+            dispatch(restoreUser(confirm.user.id));
           } else if (confirm.type === "suspend") {
             dispatch(updateUser({ ...confirm.user, status: "Suspended" }));
           } else if (confirm.type === "activate") {

@@ -26,7 +26,7 @@ export default function InventoryFormModal({ open, part, onClose, onSave }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex justify-center items-center z-50">
       <div className="bg-white p-6 rounded-lg w-full max-w-md">
         <h2 className="text-xl font-bold mb-4">{part?.id ? "Edit Part" : "Add Spare Part"}</h2>
         <div className="space-y-3">
