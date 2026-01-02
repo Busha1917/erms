@@ -1,94 +1,156 @@
 const RepairRequest = require('./RepairRequest');
-const Device = require('./Device');
+const Inventory = require('./Inventory');
 const Notification = require('./Notification');
 const asyncHandler = require('./asyncHandler');
 
 const getRequests = asyncHandler(async (req, res) => {
-  let requests;
-  if (req.user.role === 'admin') {
-    requests = await RepairRequest.find({ isDeleted: false }).sort({ createdAt: -1 });
-  } else if (req.user.role === 'technician') {
-    requests = await RepairRequest.find({ 
-      assignedToId: req.user._id, 
-      isDeleted: false 
-    }).sort({ createdAt: -1 });
-  } else {
-    requests = await RepairRequest.find({ 
-      requestedById: req.user._id, 
-      isDeleted: false 
-    }).sort({ createdAt: -1 });
+  const query = { isDeleted: false };
+  const userId = req.user._id || req.user.id;
+
+  // Scope to logged-in user
+  if (req.user.role === 'user') {
+    query.requestedById = userId;
   }
+  // Technicians see assigned tasks
+  if (req.user.role === 'technician') {
+    query.assignedToId = userId;
+  }
+
+  const requests = await RepairRequest.find(query).sort({ createdAt: -1 });
   res.json(requests);
 });
 
-const getRequestById = asyncHandler(async (req, res) => {
-  const request = await RepairRequest.findById(req.params.id);
-  if (request) {
-    if (req.user.role !== 'admin' && 
-        request.requestedById.toString() !== req.user._id.toString() && 
-        request.assignedToId?.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized to view this request' });
-    }
-    res.json(request);
-  } else {
-    res.status(404).json({ message: 'Request not found' });
-  }
-});
-
 const createRequest = asyncHandler(async (req, res) => {
-  const { deviceId, issue, detailedDescription, priority, problemCategory, serviceType, address } = req.body;
-  
-  const device = await Device.findById(deviceId);
-  if (!device) return res.status(404).json({ message: 'Device not found' });
-  if (device.status === 'Suspended') return res.status(400).json({ message: 'Device is suspended' });
-
-  const request = new RepairRequest({
-    deviceId,
-    requestedById: req.user._id,
-    issue,
-    detailedDescription,
-    priority,
-    problemCategory,
-    serviceType,
-    address: address || req.user.address,
+  const userId = req.user._id || req.user.id;
+  const requestData = {
+    ...req.body,
+    requestedById: userId, // Force requester to be logged-in user
     status: 'Pending',
-    repairStage: 'Diagnosing'
-  });
-
-  const createdRequest = await request.save();
+    id: Date.now() // Fallback ID generation if needed by frontend logic
+  };
   
+  const request = await RepairRequest.create(requestData);
+
+  // Notify Admins about new request
   await Notification.create({
-    targetRole: 'admin',
-    message: `New repair request from ${req.user.name}: ${issue}`,
-    date: new Date().toLocaleString()
+    recipientRole: 'admin',
+    message: `New Repair Request from ${req.user.name}: ${req.body.issue}`,
+    type: 'info',
+    relatedId: request._id,
+    relatedModel: 'RepairRequest'
   });
 
-  res.status(201).json(createdRequest);
+  res.status(201).json(request);
 });
 
 const updateRequest = asyncHandler(async (req, res) => {
   const request = await RepairRequest.findById(req.params.id);
-  if (!request) return res.status(404).json({ message: 'Request not found' });
-
-  const updatedRequest = await RepairRequest.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const userId = req.user._id || req.user.id;
   
+  if (!request) {
+    res.status(404);
+    throw new Error('Request not found');
+  }
+
+  // User can only cancel pending requests
+  if (req.user.role === 'user') {
+    if (String(request.requestedById) !== String(userId)) {
+      res.status(403);
+      throw new Error('Not authorized');
+    }
+
+    // Handle Cancellation
+    if (req.body.status === 'Cancelled') {
+       if (request.status === 'Pending') {
+         request.status = 'Cancelled';
+       } else if (request.status !== 'Cancelled') {
+         res.status(400);
+         throw new Error('Users can only cancel pending requests');
+       }
+       
+       // Notify Admin/Technician of cancellation
+       await Notification.create({
+         recipientRole: 'admin',
+         message: `Request #${request._id} cancelled by user ${req.user.name}`,
+         type: 'warning',
+         relatedId: request._id,
+         relatedModel: 'RepairRequest'
+       });
+    }
+
+    // Handle Comments (Allow users to add comments)
+    if (req.body.comments) {
+      request.comments = req.body.comments;
+    }
+
+    // Save changes (ignoring other fields for users)
+    await request.save();
+    return res.json(request);
+  }
+
+  // Technician/Admin: Inventory Deduction Logic
+  if (req.body.partsUsed) {
+    const oldParts = request.partsUsed || [];
+    const newParts = req.body.partsUsed || [];
+    
+    // Map partId -> quantity for old parts
+    const oldMap = {};
+    oldParts.forEach(p => {
+      const pId = p.id || p._id;
+      oldMap[pId] = (oldMap[pId] || 0) + Number(p.quantity);
+    });
+    
+    for (const part of newParts) {
+      const partId = part.id || part._id;
+      const newQty = Number(part.quantity);
+      const oldQty = oldMap[partId] || 0;
+      
+      if (newQty > oldQty) {
+        const diff = newQty - oldQty;
+        const inventoryItem = await Inventory.findById(partId);
+        
+        if (!inventoryItem) {
+           res.status(400);
+           throw new Error(`Part not found: ${part.name}`);
+        }
+        if (inventoryItem.quantity < diff) {
+           res.status(400);
+           throw new Error(`Insufficient stock for ${part.name}. Available: ${inventoryItem.quantity}`);
+        }
+        inventoryItem.quantity -= diff;
+        await inventoryItem.save(); // Pre-save hook will update status
+      }
+    }
+  }
+
+  // Admin/Technician logic
+  const updatedRequest = await RepairRequest.findByIdAndUpdate(req.params.id, req.body, { new: true });
+
+  // Notify User if status changed
   if (req.body.status && req.body.status !== request.status) {
     await Notification.create({
-      targetUserId: request.requestedById,
-      message: `Your request #${request._id} status updated to ${req.body.status}`,
-      date: new Date().toLocaleString()
+      recipientUserId: request.requestedById,
+      message: `Your repair request #${request._id} is now ${req.body.status}`,
+      type: 'info',
+      relatedId: request._id,
+      relatedModel: 'RepairRequest'
     });
   }
-  
-  if (req.body.assignedToId && req.body.assignedToId !== request.assignedToId?.toString()) {
-     await Notification.create({
-      targetUserId: req.body.assignedToId,
+
+  // Notify Technician if assigned
+  if (req.body.assignedToId && String(req.body.assignedToId) !== String(request.assignedToId)) {
+    await Notification.create({
+      recipientUserId: req.body.assignedToId,
       message: `You have been assigned to repair request #${request._id}`,
-      date: new Date().toLocaleString()
+      type: 'info',
+      relatedId: request._id,
+      relatedModel: 'RepairRequest'
     });
   }
 
   res.json(updatedRequest);
 });
 
-module.exports = { getRequests, getRequestById, createRequest, updateRequest };
+const getRequestById = asyncHandler(async (req, res) => { /* Implement if needed */ });
+
+module.exports = { getRequests, createRequest, updateRequest };

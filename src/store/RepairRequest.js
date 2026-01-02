@@ -6,34 +6,26 @@ const repairRequestSchema = mongoose.Schema({
   assignedToId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   issue: { type: String, required: true },
   detailedDescription: { type: String },
-  priority: { type: String, enum: ['Low', 'Medium', 'High', 'Critical'], default: 'Medium' },
-  status: { 
-    type: String, 
-    enum: ['Pending', 'Diagnosing', 'In Progress', 'Waiting for Parts', 'Completed', 'Rejected', 'Cancelled'], 
-    default: 'Pending' 
-  },
-  repairStage: { type: String },
-  problemCategory: { type: String },
-  serviceType: { type: String },
-  address: { type: String },
-  internalNotes: [{
-    note: String,
-    author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    date: { type: Date, default: Date.now }
-  }],
-  partsUsed: [{
-    partId: { type: mongoose.Schema.Types.ObjectId, ref: 'SparePart' },
-    quantity: Number,
-    date: { type: Date, default: Date.now }
-  }],
-  logs: [{
-    action: String,
-    details: String,
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    timestamp: { type: Date, default: Date.now }
-  }],
-  completedDate: { type: Date },
-  isDeleted: { type: Boolean, default: false }
-}, { timestamps: true });
+  department: { type: String },
+  status: { type: String, enum: ['Pending', 'In Progress', 'Completed', 'Rejected', 'Cancelled'], default: 'Pending' },
+  priority: { type: String, enum: ['Low', 'Medium', 'High', 'Urgent'], default: 'Medium' },
+  problemCategory: { type: String, default: 'Hardware' },
+  serviceType: { type: String, default: 'Repair' },
+  repairStage: { type: String, default: 'Diagnosing' },
+  deadline: { type: String },
+  adminInstructions: { type: String },
+  comments: { type: Array, default: [] },
+  partsUsed: { type: Array, default: [] },
+  accepted: { type: Boolean, default: false },
+  isPaused: { type: Boolean, default: false },
+  isDeleted: { type: Boolean, default: false },
+}, { 
+  timestamps: true,
+  toJSON: {
+    transform: (doc, ret) => {
+      ret.id = ret._id; // Map _id to id for frontend compatibility
+    }
+  }
+});
 
 module.exports = mongoose.model('RepairRequest', repairRequestSchema);

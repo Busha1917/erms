@@ -10,24 +10,17 @@ export const fetchDashboardStats = createAsyncThunk("dashboard/fetchStats", asyn
   }
 });
 
-const initialState = {
-  stats: null,
-  loading: false,
-  error: null,
-};
-
 const dashboardSlice = createSlice({
   name: "dashboard",
-  initialState,
+  initialState: { stats: {}, recentActivity: [], loading: false, error: null },
   reducers: {},
   extraReducers: (builder) => {
     builder
-      .addCase(fetchDashboardStats.pending, (state) => {
-        state.loading = true;
-      })
+      .addCase(fetchDashboardStats.pending, (state) => { state.loading = true; })
       .addCase(fetchDashboardStats.fulfilled, (state, action) => {
         state.loading = false;
-        state.stats = action.payload;
+        state.stats = action.payload.stats;
+        state.recentActivity = action.payload.recentActivity || [];
       })
       .addCase(fetchDashboardStats.rejected, (state, action) => {
         state.loading = false;

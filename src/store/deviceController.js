@@ -4,17 +4,32 @@ const asyncHandler = require('./asyncHandler');
 const getDevices = asyncHandler(async (req, res) => {
   const { deleted } = req.query;
   const query = {};
+  const userId = req.user._id || req.user.id;
   
   if (deleted !== 'true') {
     query.isDeleted = false;
   }
 
-  const devices = await Device.find(query).populate('assignedToId', 'name email');
+  // Scope to logged-in user if not admin/technician
+  if (req.user && req.user.role === 'user') {
+    query.assignedToId = userId;
+  }
+
+  const devices = await Device.find(query).populate('assignedToId', 'name email department');
   res.json(devices);
 });
 
 const createDevice = asyncHandler(async (req, res) => {
-  const device = new Device(req.body);
+  const userId = req.user._id || req.user.id;
+  const deviceData = { ...req.body };
+  
+  // If a regular user creates a device, assign it to them automatically
+  if (req.user && req.user.role === 'user') {
+    deviceData.assignedToId = userId;
+    deviceData.status = 'Active'; // Default status
+  }
+
+  const device = new Device(deviceData);
   const createdDevice = await device.save();
   res.status(201).json(createdDevice);
 });

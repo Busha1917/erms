@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "./api";
 
-export const fetchRepairs = createAsyncThunk("repairRequests/fetchAll", async (_, { rejectWithValue }) => {
+export const fetchRequests = createAsyncThunk("repairRequests/fetchAll", async (_, { rejectWithValue }) => {
   try {
     const response = await api.get("/repairs");
     return response.data;
@@ -10,48 +10,40 @@ export const fetchRepairs = createAsyncThunk("repairRequests/fetchAll", async (_
   }
 });
 
-export const loadSampleData = fetchRepairs;
-
-export const addRequest = createAsyncThunk("repairRequests/add", async (requestData, { rejectWithValue }) => {
+export const addRequest = createAsyncThunk("repairRequests/add", async (data, { rejectWithValue }) => {
   try {
-    const response = await api.post("/repairs", requestData);
+    const response = await api.post("/repairs", data);
     return response.data;
   } catch (error) {
     return rejectWithValue(error.response.data);
   }
 });
 
-export const updateRequest = createAsyncThunk("repairRequests/update", async (requestData, { rejectWithValue }) => {
+export const updateRequest = createAsyncThunk("repairRequests/update", async (data, { rejectWithValue }) => {
   try {
-    const response = await api.put(`/repairs/${requestData.id}`, requestData);
+    const id = data.id || data._id;
+    const response = await api.put(`/repairs/${id}`, data);
     return response.data;
   } catch (error) {
     return rejectWithValue(error.response.data);
   }
 });
 
-const initialState = {
-  list: [],
-  loading: false,
-  error: null,
-};
+// Alias for backward compatibility
+export const loadSampleData = fetchRequests;
 
 const repairRequestsSlice = createSlice({
   name: "repairRequests",
-  initialState,
-  reducers: {
-    // Synchronous actions
-  },
+  initialState: { list: [], loading: false, error: null },
+  reducers: {},
   extraReducers: (builder) => {
     builder
-      .addCase(fetchRepairs.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(fetchRepairs.fulfilled, (state, action) => {
+      .addCase(fetchRequests.pending, (state) => { state.loading = true; })
+      .addCase(fetchRequests.fulfilled, (state, action) => {
         state.loading = false;
         state.list = action.payload;
       })
-      .addCase(fetchRepairs.rejected, (state, action) => {
+      .addCase(fetchRequests.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
@@ -59,11 +51,10 @@ const repairRequestsSlice = createSlice({
         state.list.unshift(action.payload);
       })
       .addCase(updateRequest.fulfilled, (state, action) => {
-        const index = state.list.findIndex((r) => r._id === action.payload._id);
+        const index = state.list.findIndex(r => r._id === action.payload._id || r.id === action.payload.id);
         if (index !== -1) state.list[index] = action.payload;
       });
   },
 });
 
-export const { } = repairRequestsSlice.actions;
 export default repairRequestsSlice.reducer;
