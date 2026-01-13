@@ -13,13 +13,13 @@ export default function Devices() {
   
   const [showTrash, setShowTrash] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filters, setFilters] = useState({ type: "All", status: "All", department: "All" });
+  const [filters, setFilters] = useState({ type: "All", status: "All" });
   const [sortBy, setSortBy] = useState("createdAt");
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [assignDevice, setAssignDevice] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [page, setPage] = useState(1);
-  const pageSize = 5;
+  const pageSize = 10;
 
   useEffect(() => {
     dispatch(fetchDevices(showTrash));
@@ -30,8 +30,6 @@ export default function Devices() {
   useEffect(() => {
     setPage(1);
   }, [showTrash, searchTerm, filters, sortBy]);
-
-  const departments = useMemo(() => ["All", ...new Set(users.map((u) => u.department).filter(Boolean))], [users]);
 
   const filteredDevices = useMemo(() => {
     let result = (devices || [])
@@ -47,9 +45,6 @@ export default function Devices() {
     }
     if (filters.status !== "All") {
       result = result.filter((d) => d.status === filters.status);
-    }
-    if (filters.department !== "All") {
-      result = result.filter((d) => d.assignedToId?.department === filters.department);
     }
 
     return result.sort((a, b) => {
@@ -159,17 +154,6 @@ export default function Devices() {
         </select>
 
         <select
-          value={filters.department}
-          onChange={(e) => setFilters((prev) => ({ ...prev, department: e.target.value }))}
-          className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="All">All Departments</option>
-          {departments.map((dept) => (
-            <option key={dept} value={dept}>{dept}</option>
-          ))}
-        </select>
-
-        <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
           className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ml-auto"
@@ -190,7 +174,6 @@ export default function Devices() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device Info</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type & Model</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
@@ -220,10 +203,6 @@ export default function Devices() {
                     ) : (
                       <span className="text-gray-400 italic">Unassigned</span>
                     )}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {/* Department is derived from the assigned user */}
-                    {device.assignedToId?.department || "-"}
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${

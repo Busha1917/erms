@@ -12,6 +12,7 @@ import AdminRequestDetails from "./pages/admin/AdminRequestDetails";
 import Inventory from "./pages/admin/Inventory";
 import Reports from "./pages/admin/Reports";
 import Settings from "./pages/admin/Settings";
+import Departments from "./pages/admin/Departments";
 import UserDashboard from "./pages/user/UserDashboard";
 import UserRequests from "./pages/user/UserRequests";
 import UserDevices from "./pages/user/UserDevices";
@@ -29,7 +30,7 @@ export default function App() {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['admin']}>
               <AdminLayout />
             </ProtectedRoute>
           }
@@ -43,12 +44,13 @@ export default function App() {
           <Route path="requests/:id" element={<AdminRequestDetails />} />
           <Route path="inventory" element={<Inventory />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="departments" element={<Departments />} />
           <Route path="settings" element={<Settings />} />
         </Route>
         <Route
           path="/user"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['user']}>
               <UserLayout />
             </ProtectedRoute>
           }
@@ -62,7 +64,7 @@ export default function App() {
         <Route
           path="/technician"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['technician']}>
               <TechnicianLayout />
             </ProtectedRoute>
           }

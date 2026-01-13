@@ -46,7 +46,7 @@ export default function AdminSidebar() {
         </NavLink>
 
         <NavLink
-          to="/admin/repairs"
+          to="/admin/requests"
           className={({ isActive }) =>
             `${linkBase} ${isActive ? active : inactive}`
           }

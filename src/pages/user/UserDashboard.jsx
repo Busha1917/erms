@@ -1,86 +1,76 @@
 import { useEffect } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { loadSampleData as loadDevices } from "../../store/devicesSlice";
-import { loadSampleData as loadRequests } from "../../store/repairRequestsSlice";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchDashboardStats } from "../../store/dashboardSlice";
 import { Link } from "react-router-dom";
 
 export default function UserDashboard() {
   const dispatch = useDispatch();
-  const user = useSelector((state) => state.auth.user);
-  
-  const devicesList = useSelector((state) => state.devices?.list || []);
-  const requestsList = useSelector((state) => state.repairRequests?.list || []);
+  const { stats, recentActivity, loading } = useSelector((state) => state.dashboard);
 
   useEffect(() => {
-    if (devicesList.length === 0) dispatch(loadDevices());
-    if (requestsList.length === 0) dispatch(loadRequests());
-  }, [dispatch, devicesList.length, requestsList.length]);
+    dispatch(fetchDashboardStats());
+  }, [dispatch]);
 
-  const myDevices = devicesList.filter(d => d.assignedToId === user?.id);
-  const myRequests = requestsList.filter(r => r.requestedById === user?.id);
-  const pendingRequests = myRequests.filter(r => r.status === "Pending" || r.status === "In Progress");
-
-  const stats = [
-    { label: "My Devices", value: myDevices.length, color: "bg-blue-50 text-blue-600" },
-    { label: "Active Requests", value: pendingRequests.length, color: "bg-yellow-50 text-yellow-600" },
-    { label: "Total Requests", value: myRequests.length, color: "bg-purple-50 text-purple-600" },
-  ];
+  if (loading) return <div className="p-6">Loading dashboard...</div>;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Welcome, {user?.name}</h1>
+      <h1 className="text-2xl font-bold text-gray-800">My Dashboard</h1>
 
-      {/* STATS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {stats.map((stat, idx) => (
-          <div key={idx} className="bg-white p-6 rounded-xl shadow-sm flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 font-medium uppercase">{stat.label}</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">{stat.value}</p>
-            </div>
-            <div className={`p-3 rounded-full ${stat.color} font-bold text-xl`}>
-              {stat.value}
-            </div>
-          </div>
-        ))}
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 border-blue-500">
+          <div className="text-gray-500 text-sm">My Devices</div>
+          <div className="text-3xl font-bold text-gray-800">{stats.devices || 0}</div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 border-indigo-500">
+          <div className="text-gray-500 text-sm">Total Requests</div>
+          <div className="text-3xl font-bold text-gray-800">{stats.totalRequests || 0}</div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 border-yellow-500">
+          <div className="text-gray-500 text-sm">Pending Repairs</div>
+          <div className="text-3xl font-bold text-gray-800">{stats.pendingRequests || 0}</div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 border-green-500">
+          <div className="text-gray-500 text-sm">Completed Repairs</div>
+          <div className="text-3xl font-bold text-gray-800">{stats.completedRequests || 0}</div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* MY DEVICES PREVIEW */}
-        <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-bold text-gray-800">My Assigned Devices</h2>
-            <Link to="/user/devices" className="text-sm text-blue-600 hover:underline">View All</Link>
-          </div>
-          <div className="space-y-3">
-            {myDevices.slice(0, 3).map(d => (
-              <div key={d.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <div className="font-medium text-gray-900">{d.deviceName}</div>
-                  <div className="text-xs text-gray-500">SN: {d.serialNumber}</div>
-                </div>
-                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">{d.status}</span>
-              </div>
-            ))}
-            {myDevices.length === 0 && <p className="text-gray-500 text-sm">No devices assigned.</p>}
-          </div>
+      {/* Recent Activity */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h2 className="text-lg font-bold text-gray-800 mb-4">Recent Activity</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-gray-50 text-gray-600 text-xs uppercase">
+              <tr>
+                <th className="p-3">Issue</th>
+                <th className="p-3">Status</th>
+                <th className="p-3">Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {recentActivity.map((activity) => (
+                <tr key={activity.id || activity._id}>
+                  <td className="p-3 font-medium">{activity.issue}</td>
+                  <td className="p-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      activity.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                      activity.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-blue-100 text-blue-800'
+                    }`}>{activity.status}</span>
+                  </td>
+                  <td className="p-3 text-gray-500">{new Date(activity.updatedAt).toLocaleDateString()}</td>
+                </tr>
+              ))}
+              {recentActivity.length === 0 && (
+                <tr><td colSpan="3" className="p-4 text-center text-gray-500">No recent activity found.</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
-
-        {/* RECENT REQUESTS PREVIEW */}
-        <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-bold text-gray-800">Recent Requests</h2>
-            <Link to="/user/requests" className="text-sm text-blue-600 hover:underline">View All</Link>
-          </div>
-          <div className="space-y-3">
-            {myRequests.slice(-3).reverse().map(r => (
-              <div key={r.id} className="p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
-                <div className="font-medium text-gray-900">{r.issue}</div>
-                <div className="text-xs text-gray-500 mt-1 flex justify-between"><span>{r.createdAt}</span> <span className="font-semibold">{r.status}</span></div>
-              </div>
-            ))}
-            {myRequests.length === 0 && <p className="text-gray-500 text-sm">No requests found.</p>}
-          </div>
+        <div className="mt-4 text-right">
+          <Link to="/user/requests" className="text-blue-600 hover:underline text-sm">View All Requests &rarr;</Link>
         </div>
       </div>
     </div>

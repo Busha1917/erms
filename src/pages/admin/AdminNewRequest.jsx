@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { addRequest } from "../../store/repairRequestsSlice";
 import { addNotification } from "../../store/notificationsSlice";
-import { loadSampleData as loadInventory } from "../../store/inventorySlice";
+import { fetchInventory as loadInventory } from "../../store/inventorySlice";
 import { loadSampleData as loadDevices } from "../../store/devicesSlice";
 import { loadSampleData as loadUsers } from "../../store/usersSlice";
 
@@ -50,8 +50,8 @@ export default function AdminNewRequest() {
   }, [dispatch, inventoryList.length, devices.length, users.length]);
 
   const handleUserChange = (e) => {
-    const userId = Number(e.target.value);
-    const selectedUser = users.find(u => u.id === userId);
+    const userId = e.target.value;
+    const selectedUser = users.find(u => u.id === userId || u._id === userId);
     setForm(prev => ({
       ...prev,
       requestedById: userId,
@@ -72,7 +72,7 @@ export default function AdminNewRequest() {
     // Notify Technician if assigned immediately
     if (form.assignedToId) {
       dispatch(addNotification({
-        targetUserId: Number(form.assignedToId),
+        targetUserId: form.assignedToId,
         message: `New repair task assigned: ${form.issue}`,
         date: new Date().toLocaleString(),
       }));
@@ -131,7 +131,7 @@ export default function AdminNewRequest() {
             <label className="block text-sm font-medium text-gray-700">Device</label>
             <select
               value={form.deviceId}
-              onChange={(e) => setForm({ ...form, deviceId: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, deviceId: e.target.value })}
               className="w-full border rounded px-2 py-1 mt-1"
             >
               <option value="">Select Device</option>
@@ -146,7 +146,7 @@ export default function AdminNewRequest() {
             <label className="block text-sm font-medium text-gray-700">Assign To (Technician)</label>
             <select
               value={form.assignedToId}
-              onChange={(e) => setForm({ ...form, assignedToId: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, assignedToId: e.target.value })}
               className="w-full border rounded px-2 py-1 mt-1"
             >
               <option value="">Unassigned</option>

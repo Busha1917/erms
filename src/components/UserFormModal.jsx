@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchDepartments } from '../store/departmentsSlice';
 
-const DEPARTMENTS = ["IT", "HR", "Finance", "Marketing", "Sales", "Operations", "Logistics", "Customer Service", "Management", "Legal", "Engineering"];
-
-const UserFormModal = ({ isOpen, onClose, onSave, initialData }) => {
+const UserFormModal = ({ isOpen, onClose, onSave, initialData, isProfileView = false }) => {
   // Robustly check if we are editing (must have an ID) or adding
   const isEditMode = !!(initialData && (initialData.id || initialData._id));
 
@@ -16,6 +16,15 @@ const UserFormModal = ({ isOpen, onClose, onSave, initialData }) => {
     phone: '',
     address: ''
   });
+
+  const dispatch = useDispatch();
+  const { list: departmentsList } = useSelector((state) => state.departments);
+
+  useEffect(() => {
+    if (isOpen) {
+      dispatch(fetchDepartments());
+    }
+  }, [isOpen, dispatch]);
 
   useEffect(() => {
     if (isEditMode) {
@@ -171,8 +180,8 @@ const UserFormModal = ({ isOpen, onClose, onSave, initialData }) => {
               className="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             >
               <option value="">Select Department</option>
-              {DEPARTMENTS.map((dept) => (
-                <option key={dept} value={dept}>{dept}</option>
+              {departmentsList.map((dept) => (
+                <option key={dept.id || dept._id} value={dept.name}>{dept.name}</option>
               ))}
             </select>
           </div>

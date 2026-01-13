@@ -1,0 +1,38 @@
+import { NavLink } from "react-router-dom";
+
+export default function UserSidebar() {
+  const linkBase = "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors";
+  const active = "bg-blue-600 text-white";
+  const inactive = "text-gray-700 hover:bg-gray-100";
+
+  return (
+    <aside className="w-64 bg-white border-r min-h-screen p-4">
+      <div className="mb-8">
+        <h2 className="text-xl font-bold text-blue-600">ERMS User</h2>
+        <p className="text-sm text-gray-500">Self Service Portal</p>
+      </div>
+
+      <nav className="space-y-2">
+        <NavLink to="/user/dashboard" className={({ isActive }) => `${linkBase} ${isActive ? active : inactive}`}>
+          📊 Dashboard
+        </NavLink>
+
+        <NavLink to="/user/devices" className={({ isActive }) => `${linkBase} ${isActive ? active : inactive}`}>
+          💻 My Devices
+        </NavLink>
+
+        <NavLink to="/user/requests" className={({ isActive }) => `${linkBase} ${isActive ? active : inactive}`}>
+          🛠 My Requests
+        </NavLink>
+
+        <NavLink to="/user/new-request" className={({ isActive }) => `${linkBase} ${isActive ? active : inactive}`}>
+          ➕ New Request
+        </NavLink>
+
+        <NavLink to="/user/settings" className={({ isActive }) => `${linkBase} ${isActive ? active : inactive}`}>
+          ⚙️ Settings
+        </NavLink>
+      </nav>
+    </aside>
+  );
+}

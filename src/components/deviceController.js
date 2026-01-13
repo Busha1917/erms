@@ -1,42 +1,41 @@
 const Device = require('../models/Device');
 
+// @desc    Register new device
+// @route   POST /api/devices
+// @access  Private/Admin
+const registerDevice = async (req, res) => {
+  try {
+    const { serialNumber, deviceName, type, brand, model, condition, status } = req.body;
+
+    if (!serialNumber || !deviceName || !type) {
+      res.status(400).json({ message: 'Please add all required fields' });
+      return;
+    }
+
+    const deviceExists = await Device.findOne({ serialNumber });
+    if (deviceExists) {
+      res.status(400).json({ message: 'Device with this serial number already exists' });
+      return;
+    }
+
+    const device = await Device.create({
+      serialNumber, deviceName, type, brand, model, condition, status
+    });
+
+    console.log(`Device persisted to DB: ${device.serialNumber}`);
+    res.status(201).json(device);
+  } catch (error) {
+    console.error("Error saving device:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get all devices
+// @route   GET /api/devices
+// @access  Private
 const getDevices = async (req, res) => {
-  let devices;
-  if (req.user.role === 'admin') {
-    devices = await Device.find({});
-  } else {
-    devices = await Device.find({ assignedToId: req.user._id });
-  }
-  res.json(devices);
+  const devices = await Device.find().populate('assignedToId', 'name email');
+  res.status(200).json(devices);
 };
 
-const createDevice = async (req, res) => {
-  const { deviceName, serialNumber, type, model, assignedToId, status } = req.body;
-  const device = new Device({
-    deviceName, serialNumber, type, model, assignedToId, status
-  });
-  const createdDevice = await device.save();
-  res.status(201).json(createdDevice);
-};
-
-const updateDevice = async (req, res) => {
-  const device = await Device.findById(req.params.id);
-  if (device) {
-    const updatedDevice = await Device.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(updatedDevice);
-  } else {
-    res.status(404).json({ message: 'Device not found' });
-  }
-};
-
-const deleteDevice = async (req, res) => {
-  const device = await Device.findById(req.params.id);
-  if (device) {
-    await device.deleteOne();
-    res.json({ message: 'Device removed' });
-  } else {
-    res.status(404).json({ message: 'Device not found' });
-  }
-};
-
-module.exports = { getDevices, createDevice, updateDevice, deleteDevice };
+module.exports = { registerDevice, getDevices };

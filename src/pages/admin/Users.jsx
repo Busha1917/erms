@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { fetchUsers, addUser, updateUser, deleteUser, restoreUser } from "../../store/usersSlice";
 import { loadSampleData as loadDevices } from "../../store/devicesSlice";
+import { fetchDepartments } from "../../store/departmentsSlice";
 import UserFormModal from "../../components/UserFormModal";
 import ConfirmDialog from "../../components/ConfirmDialog";
 
@@ -10,6 +11,8 @@ export default function Users() {
   const users = Array.isArray(usersList) ? usersList : [];
   const { list: devicesList } = useSelector((state) => state.devices);
   const devices = Array.isArray(devicesList) ? devicesList : [];
+  const { list: departmentsList } = useSelector((state) => state.departments);
+  
   const dispatch = useDispatch();
 
   /* ---------- UI state ---------- */
@@ -22,7 +25,7 @@ export default function Users() {
   const [searchText, setSearchText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const pageSize = 5;
+  const pageSize = 10;
 
   // Reset page when switching views
   useEffect(() => {
@@ -33,6 +36,7 @@ export default function Users() {
   useEffect(() => {
     dispatch(fetchUsers(showTrash));
     if (devices.length === 0) dispatch(loadDevices());
+    dispatch(fetchDepartments());
   }, [dispatch, showTrash, devices.length]);
 
   /* ---------- pagination ---------- */
@@ -69,7 +73,7 @@ export default function Users() {
 
   const totalPages = Math.ceil(sortedUsers.length / pageSize);
 
-  const departments = ["All", ...new Set(users.map((u) => u.department).filter(Boolean))];
+  const departments = ["All", ...departmentsList.map(d => d.name).sort()];
   const roles = ["All", ...new Set(users.map((u) => u.role).filter(Boolean))];
 
   /* ---------- add user ---------- */

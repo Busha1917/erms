@@ -1,92 +1,83 @@
-import { useState, useEffect } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { loadSampleData as loadRequests } from "../../store/repairRequestsSlice";
-import { loadSampleData as loadDevices } from "../../store/devicesSlice";
+import { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchRequests, updateRequest } from "../../store/repairRequestsSlice";
+import { Link } from "react-router-dom";
 import RepairRequestFormModal from "../../components/RepairRequestFormModal";
 
 export default function UserRequests() {
   const dispatch = useDispatch();
-  const user = useSelector((state) => state.auth.user);
-  const requestsList = useSelector((state) => state.repairRequests?.list || []);
-  const devicesList = useSelector((state) => state.devices?.list || []);
-
+  const { list: requests, loading } = useSelector((state) => state.repairRequests);
   const [selectedRequest, setSelectedRequest] = useState(null);
 
   useEffect(() => {
-    if (requestsList.length === 0) dispatch(loadRequests());
-    if (devicesList.length === 0) dispatch(loadDevices());
-  }, [dispatch, requestsList.length, devicesList.length]);
+    dispatch(fetchRequests());
+  }, [dispatch]);
 
-  const myRequests = requestsList.filter((r) => r.requestedById === user?.id);
+  const handleCancel = (id) => {
+    if (window.confirm("Are you sure you want to cancel this request?")) {
+      dispatch(updateRequest({ id, status: "Cancelled" }));
+    }
+  };
 
-  // Sort by date descending
-  const sortedRequests = [...myRequests].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const handleSave = (data) => {
+    dispatch(updateRequest(data));
+    setSelectedRequest(null);
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-800">My Repair Requests</h1>
+        <Link to="/user/new-request" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+          + New Request
+        </Link>
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead className="bg-gray-50 text-gray-600 uppercase text-xs font-semibold">
             <tr>
-              <th className="p-4">Device</th>
               <th className="p-4">Issue</th>
+              <th className="p-4">Category</th>
               <th className="p-4">Date Submitted</th>
               <th className="p-4">Status</th>
-              <th className="p-4">Stage</th>
-              <th className="p-4">Notes</th>
-              <th className="p-4">Actions</th>
+              <th className="p-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {sortedRequests.length === 0 && (
-              <tr>
-                <td colSpan="5" className="p-6 text-center text-gray-500">You haven't submitted any requests yet.</td>
-                <td colSpan="7" className="p-6 text-center text-gray-500"></td>
+            {loading ? <tr><td colSpan="5" className="p-4 text-center">Loading...</td></tr> :
+             requests.length === 0 ? <tr><td colSpan="5" className="p-4 text-center">No requests found.</td></tr> :
+             requests.map((req) => (
+              <tr key={req.id || req._id} className="hover:bg-gray-50">
+                <td className="p-4 font-medium">{req.issue}</td>
+                <td className="p-4 text-gray-600">{req.problemCategory}</td>
+                <td className="p-4">{new Date(req.createdAt).toLocaleDateString()}</td>
+                <td className="p-4">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    req.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                    req.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                    req.status === 'Cancelled' ? 'bg-gray-100 text-gray-800' :
+                    'bg-blue-100 text-blue-800'
+                  }`}>{req.status}</span>
+                </td>
+                <td className="p-4 text-right">
+                  <button onClick={() => setSelectedRequest(req)} className="text-blue-600 hover:underline text-sm mr-3">View</button>
+                  {req.status === 'Pending' && (
+                    <button onClick={() => handleCancel(req.id || req._id)} className="text-red-600 hover:underline text-sm">Cancel</button>
+                  )}
+                </td>
               </tr>
-            )}
-            {sortedRequests.map((r) => {
-              const device = devicesList.find((d) => d.id === r.deviceId);
-              return (
-                <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="p-4 font-medium">{device?.deviceName || "Unknown Device"}</td>
-                  <td className="p-4">{r.issue}</td>
-                  <td className="p-4 text-gray-500">{r.createdAt}</td>
-                  <td className="p-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      r.status === "Pending" ? "bg-yellow-100 text-yellow-700" :
-                      r.status === "In Progress" ? "bg-blue-100 text-blue-700" :
-                      r.status === "Completed" ? "bg-green-100 text-green-700" :
-                      "bg-red-100 text-red-700"
-                    }`}>
-                      {r.status}
-                    </span>
-                  </td>
-                  <td className="p-4 text-sm text-gray-600">{r.repairStage || "-"}</td>
-                  <td className="p-4 text-gray-500 text-sm">{r.notes || "-"}</td>
-                  <td className="p-4">
-                    <button 
-                      onClick={() => setSelectedRequest(r)}
-                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                    >
-                      Track Status
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
+            ))}
           </tbody>
         </table>
       </div>
 
-      <RepairRequestFormModal
-        open={!!selectedRequest}
-        request={selectedRequest}
-        onClose={() => setSelectedRequest(null)}
-        isUserView={true}
+      <RepairRequestFormModal 
+        open={!!selectedRequest} 
+        request={selectedRequest} 
+        onClose={() => setSelectedRequest(null)} 
+        onSave={handleSave} 
+        isUserView={true} 
       />
     </div>
   );

@@ -50,7 +50,7 @@ export default function InventoryFormModal({ open, part, onClose, onSave }) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium">Price ($)</label>
+              <label className="block text-sm font-medium">Price (ETB)</label>
               <input type="number" name="price" value={form.price} onChange={handleChange} className="w-full border rounded px-2 py-1" />
             </div>
             <div>

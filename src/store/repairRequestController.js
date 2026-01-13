@@ -1,5 +1,6 @@
 const RepairRequest = require('./RepairRequest');
 const Inventory = require('./Inventory');
+const Device = require('./Device');
 const Notification = require('./Notification');
 const asyncHandler = require('./asyncHandler');
 
@@ -20,28 +21,90 @@ const getRequests = asyncHandler(async (req, res) => {
   res.json(requests);
 });
 
-const createRequest = asyncHandler(async (req, res) => {
-  const userId = req.user._id || req.user.id;
-  const requestData = {
-    ...req.body,
-    requestedById: userId, // Force requester to be logged-in user
-    status: 'Pending',
-    id: Date.now() // Fallback ID generation if needed by frontend logic
-  };
-  
-  const request = await RepairRequest.create(requestData);
+const createRequest = async (req, res) => {
+  console.log("🚨 REPAIR CONTROLLER HIT");
+  console.log("📦 Body:", JSON.stringify(req.body, null, 2));
+  console.log("👤 User:", req.user);
+  console.log("🔑 Auth Header:", req.headers.authorization);
 
-  // Notify Admins about new request
-  await Notification.create({
-    recipientRole: 'admin',
-    message: `New Repair Request from ${req.user.name}: ${req.body.issue}`,
-    type: 'info',
-    relatedId: request._id,
-    relatedModel: 'RepairRequest'
-  });
+  try {
+    if (!req.user) {
+      console.error("❌ User is undefined in controller (Middleware failure?)");
+      return res.status(401).json({ message: "User not authenticated." });
+    }
 
-  res.status(201).json(request);
-});
+    const userId = req.user._id || req.user.id;
+    
+    // Destructure to whitelist fields and avoid bad data (like empty strings for ObjectIds)
+    const { 
+      deviceId, 
+      issue, 
+      detailedDescription, 
+      priority, 
+      problemCategory, 
+      serviceType, 
+      address, 
+      assignedToId 
+    } = req.body;
+
+    // Validate Device Existence
+    if (deviceId) {
+      const deviceExists = await Device.findById(deviceId);
+      if (!deviceExists) {
+        console.error(`❌ Device not found: ${deviceId}`);
+        return res.status(404).json({ message: "Device not found" });
+      }
+    }
+
+    const requestData = {
+      deviceId,
+      requestedById: userId,
+      issue,
+      detailedDescription: detailedDescription || "",
+      priority: priority || 'Medium',
+      problemCategory: problemCategory || 'Hardware',
+      serviceType: serviceType || 'Repair',
+      address: address || (req.user.address || ""),
+      status: 'Pending',
+      repairStage: 'Diagnosing'
+    };
+
+    // Only attach assignedToId if it is a valid string (not empty, not null)
+    if (assignedToId && typeof assignedToId === 'string' && assignedToId.trim() !== "") {
+      requestData.assignedToId = assignedToId;
+    }
+    
+    console.log("💾 Saving RepairRequest:", JSON.stringify(requestData, null, 2));
+
+    const request = await RepairRequest.create(requestData);
+    console.log("✅ REPAIR SAVED:", request._id);
+
+    // Notify Admins about new request
+    try {
+      await Notification.create({
+        recipientRole: 'admin',
+        message: `New Repair Request from ${req.user.name}: ${issue}`,
+        type: 'info',
+        relatedId: request._id,
+        relatedModel: 'RepairRequest'
+      });
+    } catch (notifError) {
+      console.warn("⚠️ [NOTIFICATION] Failed to send (non-critical):", notifError.message);
+    }
+
+    res.status(201).json(request);
+  } catch (error) {
+    console.error("🔥 REPAIR SAVE FAILED");
+    console.error("Error Message:", error.message);
+    console.error("Stack:", error.stack);
+    
+    res.status(500).json({
+      error: "Repair creation failed",
+      details: error.message,
+      stack: process.env.NODE_ENV === 'production' ? null : error.stack
+    });
+  }
+};
 
 const updateRequest = asyncHandler(async (req, res) => {
   const request = await RepairRequest.findById(req.params.id);

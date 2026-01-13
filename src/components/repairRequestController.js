@@ -37,35 +37,50 @@ const getRequestById = async (req, res) => {
 };
 
 const createRequest = async (req, res) => {
-  const { deviceId, issue, detailedDescription, priority, problemCategory, serviceType, address } = req.body;
-  
-  const device = await Device.findById(deviceId);
-  if (!device) return res.status(404).json({ message: 'Device not found' });
-  if (device.status === 'Suspended') return res.status(400).json({ message: 'Device is suspended' });
+  try {
+    const { deviceId, issue, detailedDescription, priority, problemCategory, serviceType, address, assignedToId } = req.body;
+    
+    const device = await Device.findById(deviceId);
+    if (!device) return res.status(404).json({ message: 'Device not found' });
+    if (device.status === 'Suspended') return res.status(400).json({ message: 'Device is suspended' });
 
-  const request = new RepairRequest({
-    deviceId,
-    requestedById: req.user._id,
-    issue,
-    detailedDescription,
-    priority,
-    problemCategory,
-    serviceType,
-    address: address || req.user.address,
-    status: 'Pending',
-    repairStage: 'Diagnosing'
-  });
+    const requestData = {
+      deviceId,
+      requestedById: req.user._id,
+      issue,
+      detailedDescription,
+      priority,
+      problemCategory,
+      serviceType,
+      address: address || req.user.address,
+      status: 'Pending', // Default status
+      repairStage: 'Diagnosing'
+    };
 
-  const createdRequest = await request.save();
-  
-  // Notify Admins
-  await Notification.create({
-    targetRole: 'admin',
-    message: `New repair request from ${req.user.name}: ${issue}`,
-    date: new Date().toLocaleString()
-  });
+    // Only add assignedToId if it is provided and not empty
+    if (assignedToId && typeof assignedToId === 'string' && assignedToId.trim() !== "") {
+      requestData.assignedToId = assignedToId;
+    }
 
-  res.status(201).json(createdRequest);
+    const request = new RepairRequest(requestData);
+    const createdRequest = await request.save();
+    
+    // Notify Admins (Safe Mode: Don't fail request if notification fails)
+    try {
+      await Notification.create({
+        targetRole: 'admin',
+        message: `New repair request from ${req.user.name}: ${issue}`,
+        date: new Date().toLocaleString()
+      });
+    } catch (notifError) {
+      console.error("Notification failed (non-critical):", notifError.message);
+    }
+
+    res.status(201).json(createdRequest);
+  } catch (error) {
+    console.error("Create Request Error:", error);
+    res.status(500).json({ message: error.message || "Server Error processing request" });
+  }
 };
 
 const updateRequest = async (req, res) => {

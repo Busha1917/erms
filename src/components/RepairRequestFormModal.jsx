@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { loadSampleData as loadInventory } from "../store/inventorySlice";
+import { fetchInventory as loadInventory } from "../store/inventorySlice";
+import { fetchDevices } from "../store/devicesSlice";
 
 export default function RepairRequestFormModal({ open, request, onClose, onSave, isUserView = false, isTechnicianView = false }) {
   const dispatch = useDispatch();
@@ -59,7 +60,7 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
     } else if (isUserView && currentUser) {
       setForm({
         ...defaultForm,
-        requestedById: currentUser.id,
+        requestedById: currentUser.id || currentUser._id || "",
         department: currentUser.department || "",
         problemCategory: "Hardware",
         detailedDescription: "",
@@ -75,23 +76,29 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
         isPaused: false,
       });
     }
-  }, [request, isUserView, currentUser, open]);
 
-  if (!open) return null;
+    // Ensure devices are loaded for the dropdown
+    if (isUserView && devices.length === 0) {
+      dispatch(fetchDevices());
+    }
+  }, [request, isUserView, currentUser, open, dispatch, devices.length]);
 
   // Filter devices for user view (Technicians see all or just the one in the request)
   const availableDevices = isUserView
-    ? devices.filter(d => d.assignedToId === currentUser?.id && d.status !== "Suspended")
+    ? devices.filter(d => {
+        const ownerId = d.assignedToId?._id || d.assignedToId?.id || d.assignedToId;
+        return String(ownerId) === String(currentUser?.id || currentUser?._id) && d.status !== "Suspended";
+      })
     : devices;
 
   // Get details of the requested user (either current user or selected user)
   const requestUser = isUserView
     ? currentUser 
-    : users.find(u => u.id === form.requestedById);
+    : users.find(u => u.id === form.requestedById || u._id === form.requestedById);
 
   const handleUserChange = (e) => {
-    const userId = Number(e.target.value);
-    const selectedUser = users.find(u => u.id === userId);
+    const userId = e.target.value;
+    const selectedUser = users.find(u => u.id === userId || u._id === userId);
     setForm(prev => ({
       ...prev,
       requestedById: userId,
@@ -99,6 +106,7 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
     }));
   };
 
+  // Hooks must be defined before any conditional return
   const [newComment, setNewComment] = useState("");
   const handleAddComment = () => {
     if (!newComment.trim()) return;
@@ -111,10 +119,15 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
   const [partQty, setPartQty] = useState(1);
 
   const handleAddPart = () => {
-    const part = inventoryList.find(p => p.id === Number(selectedPartId));
+    const part = inventoryList.find(p => p.id === selectedPartId || p._id === selectedPartId);
     if (!part) return;
     setForm(prev => ({ ...prev, partsUsed: [...prev.partsUsed, { id: part.id, name: part.name, quantity: Number(partQty), price: part.price }] }));
   };
+
+  // Determine if fields should be read-only for the user (viewing existing request)
+  const isReadOnlyUser = isUserView && !!request?.id;
+
+  if (!open) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex justify-center items-center z-50">
@@ -161,8 +174,8 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
             <label className="block text-sm font-medium">Device</label>
             <select
               value={form.deviceId}
-              onChange={(e) => setForm({ ...form, deviceId: Number(e.target.value) })}
-              disabled={isTechnicianView}
+              onChange={(e) => setForm({ ...form, deviceId: e.target.value })}
+              disabled={isTechnicianView || isReadOnlyUser}
               className="w-full border rounded px-2 py-1"
             >
               <option value="">Select Device</option>
@@ -198,7 +211,7 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
             <label className="block text-sm font-medium">Assign To (Technician)</label>
             <select
               value={form.assignedToId}
-              onChange={(e) => setForm({ ...form, assignedToId: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, assignedToId: e.target.value })}
               className="w-full border rounded px-2 py-1"
             >
               <option value="">Select Technician</option>
@@ -310,7 +323,7 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
                 <select
                   value={form.serviceType}
                   onChange={(e) => setForm({ ...form, serviceType: e.target.value })}
-                  disabled={isTechnicianView}
+                  disabled={isTechnicianView || isReadOnlyUser}
                   className="w-full border rounded px-2 py-1"
                 >
                   <option value="Repair">Repair</option>
@@ -323,7 +336,7 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
                 <select
                   value={form.problemCategory}
                   onChange={(e) => setForm({ ...form, problemCategory: e.target.value })}
-                  disabled={isTechnicianView}
+                  disabled={isTechnicianView || isReadOnlyUser}
                   className="w-full border rounded px-2 py-1"
                 >
                   <option value="Hardware">Hardware</option>
@@ -339,7 +352,7 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
                   value={form.problemStartDate}
                   onChange={(e) => setForm({ ...form, problemStartDate: e.target.value })}
                   max={new Date().toISOString().split("T")[0]}
-                  disabled={isTechnicianView}
+                  disabled={isTechnicianView || isReadOnlyUser}
                   className="w-full border rounded px-2 py-1"
                 />
               </div>
@@ -351,7 +364,7 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
                 type="text"
                 value={form.issue}
                 onChange={(e) => setForm({ ...form, issue: e.target.value })}
-                disabled={isTechnicianView}
+                disabled={isTechnicianView || isReadOnlyUser}
                 className="w-full border rounded px-2 py-1"
                 placeholder="Brief summary of the issue"
               />
@@ -362,7 +375,7 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
               <textarea
                 value={form.detailedDescription}
                 onChange={(e) => setForm({ ...form, detailedDescription: e.target.value })}
-                disabled={isTechnicianView}
+                disabled={isTechnicianView || isReadOnlyUser}
                 className="w-full border rounded px-2 py-1 h-24"
                 placeholder="Please describe the issue in detail..."
               />
@@ -378,7 +391,7 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
                     value="Yes"
                     checked={form.previousRepairHistory === "Yes"}
                     onChange={(e) => setForm({ ...form, previousRepairHistory: e.target.value })}
-                    disabled={isTechnicianView}
+                    disabled={isTechnicianView || isReadOnlyUser}
                   />
                   <span className="text-sm">Yes</span>
                 </label>
@@ -389,7 +402,7 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
                     value="No"
                     checked={form.previousRepairHistory === "No"}
                     onChange={(e) => setForm({ ...form, previousRepairHistory: e.target.value })}
-                    disabled={isTechnicianView}
+                    disabled={isTechnicianView || isReadOnlyUser}
                   />
                   <span className="text-sm">No</span>
                 </label>
@@ -402,7 +415,7 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
               <input 
                 type="file" 
                 multiple 
-                disabled={isTechnicianView}
+                disabled={isTechnicianView || isReadOnlyUser}
                 className="w-full border rounded px-2 py-1 text-sm file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" 
               />
             </div>
@@ -450,6 +463,7 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
             <textarea
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              disabled={isReadOnlyUser}
               className="w-full border rounded px-2 py-1"
             />
           </div>
@@ -488,7 +502,13 @@ export default function RepairRequestFormModal({ open, request, onClose, onSave,
               Cancel
             </button>
             <button
-              onClick={() => onSave({ ...form, id: request?.id || Date.now(), lastUpdated: new Date().toISOString().split("T")[0] })}
+              onClick={() => {
+                const payload = { ...form, lastUpdated: new Date().toISOString() };
+                if (request && (request.id || request._id)) {
+                  payload.id = request.id || request._id;
+                }
+                onSave(payload);
+              }}
               disabled={isUserView && !request?.id && !form.termsAccepted}
               className={`px-4 py-2 rounded text-white ${isUserView && !request?.id && !form.termsAccepted ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
             >

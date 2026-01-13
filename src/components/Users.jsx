@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { fetchUsers, addUser, updateUser, deleteUser, restoreUser } from '../store/usersSlice';
 import UserFormModal from './UserFormModal';
 
 const Users = () => {
   const dispatch = useDispatch();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { list: users, loading, error } = useSelector((state) => state.users);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -24,6 +27,17 @@ const Users = () => {
     setCurrentUser(user); // Ensure we are in "Edit Mode"
     setIsModalOpen(true);
   };
+
+  // Handle navigation from notifications
+  useEffect(() => {
+    if (location.state?.highlightId && users.length > 0) {
+      const targetUser = users.find(u => (u.id === location.state.highlightId || u._id === location.state.highlightId));
+      if (targetUser) {
+        handleEditUser(targetUser);
+        navigate(location.pathname, { replace: true, state: {} }); // Clear state to prevent reopening on refresh
+      }
+    }
+  }, [location.state, users, navigate, location.pathname]);
 
   const handleDeleteUser = (id) => {
     if (window.confirm('Are you sure you want to delete this user?')) {

@@ -37,7 +37,7 @@ export default function TechnicianTasks() {
 
   const handleReject = (request) => {
     // In a real app, this might open a modal for reason
-    dispatch(updateRequest({ ...request, assignedToId: null, status: "Pending", notes: request.notes + " [Rejected by Technician]" }));
+    dispatch(updateRequest({ ...request, assignedToId: null, status: "Pending", notes: (request.notes || "") + " [Rejected by Technician]" }));
   };
 
   return (
@@ -59,6 +59,9 @@ export default function TechnicianTasks() {
         {filteredTasks.map(r => {
           const device = devicesList.find(d => d.id === r.deviceId);
           const requester = usersList.find(u => u.id === r.requestedById);
+          
+          // Determine if the task has been accepted (persisted flag OR status check)
+          const isAccepted = r.accepted || r.status === "In Progress" || r.status === "Completed";
           
           return (
             <div key={r.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between gap-4">
@@ -94,13 +97,13 @@ export default function TechnicianTasks() {
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                   r.status === "Completed" ? "bg-green-100 text-green-800" :
                   r.status === "In Progress" ? "bg-blue-100 text-blue-800" :
-                  !r.accepted ? "bg-purple-100 text-purple-800" :
+                  !isAccepted ? "bg-purple-100 text-purple-800" :
                   "bg-yellow-100 text-yellow-800"
                 }`}>
-                  {!r.accepted ? "New Assignment" : r.status}
+                  {!isAccepted ? "New Assignment" : r.status}
                 </span>
 
-                {!r.accepted ? (
+                {!isAccepted ? (
                   <div className="flex gap-2 w-full">
                     <button onClick={() => handleAccept(r)} className="flex-1 px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">Accept</button>
                     <button onClick={() => handleReject(r)} className="flex-1 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700">Reject</button>

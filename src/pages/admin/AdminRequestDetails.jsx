@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import { updateRequest, loadSampleData as loadRequests } from "../../store/repairRequestsSlice";
 import { addNotification } from "../../store/notificationsSlice";
-import { loadSampleData as loadInventory } from "../../store/inventorySlice";
+import { fetchInventory as loadInventory } from "../../store/inventorySlice";
 import { loadSampleData as loadDevices } from "../../store/devicesSlice";
 import { loadSampleData as loadUsers } from "../../store/usersSlice";
 
@@ -31,7 +31,7 @@ export default function AdminRequestDetails() {
 
   // Find and set request data
   useEffect(() => {
-    const request = requestsList.find((r) => r.id === Number(id));
+    const request = requestsList.find((r) => String(r.id) === String(id) || String(r._id) === String(id));
     if (request) {
       setForm({
         ...request,
@@ -44,7 +44,7 @@ export default function AdminRequestDetails() {
   if (!form) return <div className="p-6">Loading request details...</div>;
 
   const handleSave = () => {
-    const originalRequest = requestsList.find((r) => r.id === Number(id));
+    const originalRequest = requestsList.find((r) => String(r.id) === String(id));
     
     if (originalRequest) {
       // Notify User on Status Change
@@ -134,7 +134,7 @@ export default function AdminRequestDetails() {
               <label className="block text-sm font-medium text-gray-700">Assigned Technician</label>
               <select
                 value={form.assignedToId}
-                onChange={(e) => setForm({ ...form, assignedToId: Number(e.target.value) })}
+                onChange={(e) => setForm({ ...form, assignedToId: e.target.value })}
                 className="w-full border rounded px-2 py-1 mt-1"
               >
                 <option value="">Unassigned</option>

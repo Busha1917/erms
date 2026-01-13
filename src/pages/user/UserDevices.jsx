@@ -1,59 +1,60 @@
-import { useEffect } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { useNavigate } from "react-router-dom";
-import { loadSampleData } from "../../store/devicesSlice";
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchDevices } from "../../store/devicesSlice";
 
 export default function UserDevices() {
   const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const user = useSelector((state) => state.auth.user);
-  const devicesList = useSelector((state) => state.devices?.list || []);
+  const { list: devices, loading } = useSelector((state) => state.devices);
+  const currentUser = useSelector((state) => state.auth.user);
 
   useEffect(() => {
-    if (devicesList.length === 0) dispatch(loadSampleData());
-  }, [dispatch, devicesList.length]);
+    dispatch(fetchDevices());
+  }, [dispatch]);
 
-  const myDevices = devicesList.filter((d) => d.assignedToId === user?.id);
+  // Filter devices to ensure only assigned ones are shown
+  const userDevices = devices.filter(d => {
+    if (!currentUser) return false;
+    const assignedId = d.assignedToId?._id || d.assignedToId?.id || d.assignedToId;
+    return String(assignedId) === String(currentUser.id);
+  });
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">My Devices</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {myDevices.map((device) => (
-          <div key={device.id} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="font-bold text-lg text-gray-800">{device.deviceName}</h3>
-                <p className="text-sm text-gray-500">SN: {device.serialNumber}</p>
-              </div>
-              <span className={`px-2 py-1 rounded text-xs font-bold ${
-                device.status === "Active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-              }`}>
-                {device.status}
-              </span>
-            </div>
-            <div className="space-y-2 text-sm text-gray-600 mb-4">
-              <p><span className="font-medium">Type:</span> {device.type}</p>
-              <p><span className="font-medium">Model:</span> {device.model}</p>
-            </div>
-            <button
-              onClick={() => navigate("/user/new-request", { state: { deviceId: device.id } })}
-              disabled={device.status === "Suspended"}
-              className={`w-full py-2 rounded transition ${
-                device.status === "Suspended" 
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
-                  : "bg-blue-600 text-white hover:bg-blue-700"
-              }`}
-            >
-              {device.status === "Suspended" ? "Suspended" : "Report Issue"}
-            </button>
-          </div>
-        ))}
-        {myDevices.length === 0 && (
-          <div className="col-span-full text-center py-10 text-gray-500">
-            No devices assigned to you.
-          </div>
-        )}
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-800">My Devices</h1>
+      </div>
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-gray-50 text-gray-600 uppercase text-xs font-semibold">
+            <tr>
+              <th className="p-4">Device Name</th>
+              <th className="p-4">Type & Model</th>
+              <th className="p-4">Serial Number</th>
+              <th className="p-4">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {loading ? <tr><td colSpan="4" className="p-4 text-center">Loading...</td></tr> :
+             userDevices.length === 0 ? <tr><td colSpan="4" className="p-4 text-center">No devices registered.</td></tr> :
+             userDevices.map((device) => (
+              <tr key={device.id || device._id} className="hover:bg-gray-50">
+                <td className="p-4 font-medium">{device.deviceName}</td>
+                <td className="p-4 text-gray-600">{device.type} - {device.model}</td>
+                <td className="p-4 font-mono text-sm">{device.serialNumber}</td>
+                <td className="p-4">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    device.status === 'Active' ? 'bg-green-100 text-green-800' : 
+                    device.status === 'In Repair' ? 'bg-yellow-100 text-yellow-800' : 
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {device.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

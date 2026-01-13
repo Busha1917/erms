@@ -1,23 +1,26 @@
 import { useState, useRef, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { markAsRead, markAllAsRead } from "../store/notificationsSlice";
+import { useNavigate } from "react-router-dom";
+import { fetchNotifications, markAsRead, markAllAsRead } from "../store/notificationsSlice";
 
 export default function NotificationBell() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const notifications = useSelector((state) => state.notifications.list);
-  const currentUser = useSelector((state) => state.auth.user);
+  const user = useSelector((state) => state.auth.user);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Filter notifications for the current user
-  const myNotifications = notifications.filter((n) => {
-    if (n.targetUserId === currentUser?.id) return true;
-    if (Array.isArray(n.targetRole) && n.targetRole.includes(currentUser?.role)) return true;
-    if (n.targetRole === currentUser?.role) return true;
-    return false;
-  });
+  // Fetch notifications on mount and set up polling
+  useEffect(() => {
+    dispatch(fetchNotifications());
+    const interval = setInterval(() => {
+      dispatch(fetchNotifications());
+    }, 30000); // Poll every 30 seconds
+    return () => clearInterval(interval);
+  }, [dispatch]);
 
-  const unreadCount = myNotifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -30,8 +33,78 @@ export default function NotificationBell() {
   }, []);
 
   const handleMarkAllRead = () => {
-    const ids = myNotifications.map((n) => n.id);
-    dispatch(markAllAsRead(ids));
+    dispatch(markAllAsRead());
+  };
+
+  const handleNotificationClick = (notification) => {
+    // 1. Mark as read
+    if (!notification.read) {
+      dispatch(markAsRead(notification._id || notification.id));
+    }
+    setIsOpen(false);
+
+    // 2. Navigate based on type and role
+    const role = user?.role;
+    
+    // Robust ID extraction: handle object with _id/id or string
+    let entityId = notification.relatedEntity;
+    if (entityId && typeof entityId === 'object') {
+      entityId = entityId._id || entityId.id;
+    }
+
+    // Safety Check: If no ID is found for entity-specific notifications, warn and fallback
+    if (!entityId && notification.type !== 'GENERAL') {
+      console.warn("Notification click aborted: Missing entity ID", notification);
+      // Fallback to dashboard if we can't navigate to a specific item
+      if (role === 'admin') navigate('/admin/dashboard');
+      else if (role === 'technician') navigate('/technician/dashboard');
+      else navigate('/user/dashboard');
+      return;
+    }
+
+    switch (notification.type) {
+      // --- REPAIR EVENTS ---
+      case 'REPAIR_CREATED':
+      case 'REPAIR_STATUS_CHANGE':
+      case 'REPAIR_ASSIGNED':
+      case 'REPAIR_CANCELLED':
+      case 'REPAIR_COMPLETED':
+      case 'REPAIR_OVERDUE':
+        if (role === 'admin') navigate('/admin/requests', { state: { highlightId: entityId } });
+        else if (role === 'technician') navigate('/technician/tasks', { state: { highlightId: entityId } });
+        else if (role === 'user') navigate(`/user/repair/${entityId}`);
+        break;
+      
+      // --- INVENTORY EVENTS ---
+      case 'INVENTORY_LOW':
+      case 'INVENTORY_OUT':
+        if (role === 'admin' || role === 'technician') navigate('/admin/inventory', { state: { highlightId: entityId } });
+        break;
+
+      // --- USER EVENTS ---
+      case 'USER_REGISTERED':
+        if (role === 'admin') navigate('/admin/users', { state: { highlightId: entityId } });
+        break;
+
+      default:
+        // Default fallback
+        if (role === 'admin') navigate('/admin/dashboard');
+        else if (role === 'technician') navigate('/technician/dashboard');
+        else navigate('/user/dashboard');
+    }
+  };
+
+  const getTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    
+    if (seconds < 60) return 'Just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return date.toLocaleDateString();
   };
 
   return (
@@ -57,13 +130,20 @@ export default function NotificationBell() {
               </button>
             )}
           </div>
-          {myNotifications.length === 0 ? (
+          {notifications.length === 0 ? (
             <div className="p-4 text-center text-gray-500 text-sm">No notifications</div>
           ) : (
-            myNotifications.map((n) => (
-              <div key={n.id} onClick={() => dispatch(markAsRead(n.id))} className={`p-3 border-b cursor-pointer hover:bg-gray-50 ${n.read ? "opacity-60" : "bg-blue-50"}`}>
-                <p className="text-sm text-gray-800">{n.message}</p>
-                <p className="text-xs text-gray-500 mt-1">{n.date}</p>
+            notifications.map((n) => (
+              <div 
+                key={n._id || n.id} 
+                onClick={() => handleNotificationClick(n)} 
+                className={`p-3 border-b cursor-pointer hover:bg-gray-50 transition-colors ${n.read ? "bg-white" : "bg-blue-50"}`}
+              >
+                <div className="flex justify-between items-start mb-1">
+                  <p className={`text-sm text-gray-800 ${!n.read ? "font-bold" : "font-normal"}`}>{n.title || "Notification"}</p>
+                  <span className="text-xs text-gray-400 whitespace-nowrap ml-2">{getTimeAgo(n.createdAt)}</span>
+                </div>
+                <p className="text-sm text-gray-600 line-clamp-2">{n.message}</p>
               </div>
             ))
           )}

@@ -1,43 +1,52 @@
 const User = require('../models/User');
 
-const getUsers = async (req, res) => {
-  const users = await User.find({ isDeleted: false }).select('-password');
-  res.json(users);
-};
+// @desc    Register new user
+// @route   POST /api/users
+// @access  Public/Admin
+const registerUser = async (req, res) => {
+  try {
+    const { name, username, email, password, role, department, phone, address } = req.body;
 
-const getUserById = async (req, res) => {
-  const user = await User.findById(req.params.id).select('-password');
-  if (user) {
-    res.json(user);
-  } else {
-    res.status(404).json({ message: 'User not found' });
-  }
-};
-
-const updateUser = async (req, res) => {
-  const user = await User.findById(req.params.id);
-  if (user) {
-    user.name = req.body.name || user.name;
-    user.email = req.body.email || user.email;
-    user.role = req.body.role || user.role;
-    user.department = req.body.department || user.department;
-    user.phone = req.body.phone || user.phone;
-    user.address = req.body.address || user.address;
-    
-    if (req.body.password) {
-      user.password = req.body.password;
+    if (!name || !email || !password || !role) {
+      res.status(400).json({ message: 'Please add all required fields' });
+      return;
     }
 
-    const updatedUser = await user.save();
-    res.json({
-      id: updatedUser._id,
-      name: updatedUser.name,
-      email: updatedUser.email,
-      role: updatedUser.role,
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      res.status(400).json({ message: 'User already exists' });
+      return;
+    }
+
+    // Create user in database
+    const user = await User.create({
+      name, username, email, password, role, department, phone, address
     });
-  } else {
-    res.status(404).json({ message: 'User not found' });
+
+    if (user) {
+      console.log(`User persisted to DB: ${user.email}`);
+      res.status(201).json({
+        _id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      });
+    } else {
+      res.status(400).json({ message: 'Invalid user data' });
+    }
+  } catch (error) {
+    console.error("Error saving user:", error);
+    res.status(500).json({ message: error.message });
   }
 };
 
-module.exports = { getUsers, getUserById, updateUser };
+// @desc    Get all users
+// @route   GET /api/users
+// @access  Private/Admin
+const getUsers = async (req, res) => {
+  const users = await User.find({ isDeleted: false });
+  console.log(`Fetched ${users.length} users from DB`);
+  res.status(200).json(users);
+};
+
+module.exports = { registerUser, getUsers };

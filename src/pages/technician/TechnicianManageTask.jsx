@@ -33,7 +33,7 @@ export default function TechnicianManageTask() {
 
   // Find and set request data
   useEffect(() => {
-    const request = requestsList.find((r) => r.id === Number(id));
+    const request = requestsList.find((r) => String(r.id) === String(id) || String(r._id) === String(id));
     if (request) {
       setForm({
         ...request,
@@ -49,7 +49,7 @@ export default function TechnicianManageTask() {
   const requester = usersList.find((u) => u.id === form.requestedById) || {};
 
   const handleSave = () => {
-    const originalRequest = requestsList.find(r => r.id === Number(id));
+    const originalRequest = requestsList.find(r => String(r.id) === String(id) || String(r._id) === String(id));
     if (originalRequest && originalRequest.status !== form.status) {
        dispatch(addNotification({
          targetUserId: form.requestedById,
@@ -69,7 +69,7 @@ export default function TechnicianManageTask() {
   };
 
   const handleAddPart = () => {
-    const part = inventoryList.find((p) => p.id === Number(selectedPartId));
+    const part = inventoryList.find((p) => String(p.id) === String(selectedPartId) || String(p._id) === String(selectedPartId));
     if (!part) return;
     setForm((prev) => ({
       ...prev,
